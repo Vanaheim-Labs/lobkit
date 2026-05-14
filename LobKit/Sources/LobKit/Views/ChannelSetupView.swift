@@ -16,126 +16,107 @@ struct ChannelSetupView: View {
 
 struct TelegramSetupView: View {
     @EnvironmentObject var state: InstallerState
-    @State private var validationMessage = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Spacer()
 
-            VStack(alignment: .leading, spacing: 16) {
-                Text("STEP 5 OF 6")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .tracking(1)
-
-                Text("Connect Telegram")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-
-                Text("Create a Telegram bot in 60 seconds and paste the token here.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: 420, alignment: .leading)
-
-                Spacer().frame(height: 4)
-
-                // Step-by-step instructions
-                VStack(alignment: .leading, spacing: 16) {
-                    TelegramStep(number: 1, text: "Open Telegram and search for @BotFather") {
-                        // Try native Telegram link first, fall back to web
-                        if let tgURL = URL(string: "tg://resolve?domain=BotFather") {
-                            NSWorkspace.shared.open(tgURL)
-                        } else if let webURL = URL(string: "https://t.me/BotFather") {
-                            NSWorkspace.shared.open(webURL)
-                        }
-                    }
-
-                    TelegramStep(number: 2, text: "Send /newbot and follow the prompts to name your bot", action: nil)
-
-                    TelegramStep(number: 3, text: "BotFather will give you a token that looks like:", action: nil)
-
-                    // Token example
-                    Text("123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11")
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(.tertiary)
-                        .padding(.leading, 36)
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Step 5 of 6")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text("Connect Telegram")
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                    Text("Create a Telegram bot in 60 seconds and paste the token here.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
                 }
-                .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.secondary.opacity(0.06))
-                )
 
-                // Token field
+                // Step-by-step guide
+                VStack(alignment: .leading, spacing: 12) {
+                    InstructionRow(number: 1, text: "Open Telegram and search for @BotFather")
+                    InstructionRow(number: 2, text: "Send /newbot and follow the prompts to name your bot")
+                    InstructionRow(number: 3, text: "BotFather will give you a token — copy it")
+                    InstructionRow(number: 4, text: "Paste the token below")
+
+                    Button(action: {
+                        if let url = URL(string: "https://t.me/BotFather") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.right.square")
+                            Text("Open BotFather in Telegram")
+                        }
+                        .font(.system(size: 13))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.accent)
+                }
+
+                // Token input
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Bot Token")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
 
                     HStack(spacing: 8) {
-                        TextField("Paste your bot token here", text: $state.telegramToken)
+                        SecureField("Paste your bot token", text: $state.telegramToken)
                             .textFieldStyle(.roundedBorder)
-                            .font(.system(size: 14, design: .monospaced))
-                            .onSubmit { validateToken() }
-                            .onChange(of: state.telegramToken) { _ in
-                                if state.telegramTokenValid {
-                                    state.telegramTokenValid = false
-                                    state.telegramBotName = ""
-                                    validationMessage = ""
-                                }
+                            .font(.system(size: 13, design: .monospaced))
+                            .onSubmit {
+                                Task { await validateTelegramToken() }
                             }
 
+                        if state.telegramValidating {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        } else if state.telegramTokenValid {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        }
+
                         Button("Validate") {
-                            validateToken()
+                            Task { await validateTelegramToken() }
                         }
                         .buttonStyle(.bordered)
-                        .disabled(state.telegramToken.isEmpty || state.telegramTokenValidating)
+                        .disabled(state.telegramToken.isEmpty || state.telegramValidating)
                     }
 
-                    // Validation status
-                    if state.telegramTokenValidating {
-                        HStack(spacing: 6) {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("Checking token...")
-                                .font(.system(size: 13))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if state.telegramTokenValid {
+                    if state.telegramTokenValid, !state.telegramBotName.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                            Text("Connected to @\(state.telegramBotName)")
-                                .font(.system(size: 13))
+                            Text("Connected as @\(state.telegramBotName)")
+                                .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.green)
                         }
-                    } else if !validationMessage.isEmpty {
-                        HStack(spacing: 6) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.red)
-                            Text(validationMessage)
-                                .font(.system(size: 13))
-                                .foregroundStyle(.red)
+                    }
+
+                    if let error = state.telegramError {
+                        Text(error)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                HStack {
+                    Spacer()
+                    Button(action: { state.advance() }) {
+                        HStack {
+                            Text("Continue")
+                                .font(.system(size: 15, weight: .semibold))
+                            Image(systemName: "arrow.right")
                         }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(state.telegramTokenValid ? Color.accentColor : Color.secondary.opacity(0.3))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
+                    .buttonStyle(.plain)
+                    .disabled(!state.telegramTokenValid)
                 }
-
-                Spacer().frame(height: 16)
-
-                Button(action: { state.advance() }) {
-                    HStack {
-                        Text("Continue")
-                            .font(.system(size: 15, weight: .semibold))
-                        Image(systemName: "arrow.right")
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(state.telegramTokenValid ? Color.accentColor : Color.accentColor.opacity(0.4))
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-                .buttonStyle(.plain)
-                .disabled(!state.telegramTokenValid)
             }
             .padding(.horizontal, 48)
 
@@ -143,93 +124,209 @@ struct TelegramSetupView: View {
         }
     }
 
-    private func validateToken() {
+    private func validateTelegramToken() async {
+        state.telegramValidating = true
+        state.telegramError = nil
+        state.telegramTokenValid = false
+        state.telegramBotName = ""
+
         let token = state.telegramToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { return }
+            .replacingOccurrences(of: "'", with: "'\\''")
+        let svc = state.service
 
-        state.telegramTokenValidating = true
-        validationMessage = ""
-
-        Task {
-            let escaped = token.replacingOccurrences(of: "'", with: "'\\''")
-            let result = await InstallService.shared.run(
-                "curl -s 'https://api.telegram.org/bot\(escaped)/getMe'"
-            )
-
-            await MainActor.run {
-                state.telegramTokenValidating = false
-
-                if result.exitCode == 0 {
-                    // Parse the JSON response to find bot username
-                    if let data = result.output.data(using: .utf8),
-                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let ok = json["ok"] as? Bool, ok,
-                       let resultObj = json["result"] as? [String: Any],
-                       let username = resultObj["username"] as? String {
-                        state.telegramBotName = username
-                        state.telegramTokenValid = true
-                    } else {
-                        validationMessage = "Invalid token — check and try again"
-                        state.telegramTokenValid = false
-                    }
-                } else {
-                    validationMessage = "Could not reach Telegram API — check your connection"
-                    state.telegramTokenValid = false
-                }
+        let cmd = "curl -s 'https://api.telegram.org/bot\(token)/getMe'"
+        if let result = await svc.runCapture(cmd) {
+            if let data = result.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let ok = json["ok"] as? Bool, ok,
+               let resultObj = json["result"] as? [String: Any],
+               let username = resultObj["username"] as? String {
+                state.telegramBotName = username
+                state.telegramTokenValid = true
+            } else if result.contains("\"ok\":false") {
+                state.telegramError = "Invalid token. Make sure you copied the full token from BotFather."
+            } else {
+                state.telegramError = "Could not verify the token. Check your internet connection."
             }
+        } else {
+            state.telegramError = "Could not reach Telegram. Check your internet connection."
         }
+
+        state.telegramValidating = false
     }
 }
 
-// MARK: - Telegram Step Row
-
-struct TelegramStep: View {
+struct InstructionRow: View {
     let number: Int
     let text: String
-    let action: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 10) {
             Text("\(number)")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-                .frame(width: 24, height: 24)
-                .background(Circle().fill(Color.accentColor))
+                .frame(width: 22, height: 22)
+                .background(Color.accentColor)
+                .clipShape(Circle())
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(text)
-                    .font(.system(size: 14))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if let action {
-                    Button(action: action) {
-                        HStack(spacing: 4) {
-                            Text("Open BotFather")
-                                .font(.system(size: 12, weight: .medium))
-                            Image(systemName: "arrow.up.forward")
-                                .font(.system(size: 10))
-                        }
-                        .foregroundStyle(Color.accentColor)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            Text(text)
+                .font(.system(size: 13))
+                .foregroundStyle(.primary)
         }
     }
 }
 
-// MARK: - Slack Setup (placeholder kept for now)
+// MARK: - Slack Setup
 
 struct SlackSetupView: View {
     @EnvironmentObject var state: InstallerState
+    @State private var manifestCopied = false
+
+    private let slackManifest = """
+    {
+      "display_information": { "name": "OpenClaw" },
+      "features": {
+        "bot_user": { "display_name": "OpenClaw", "always_online": true }
+      },
+      "oauth_config": {
+        "scopes": {
+          "bot": ["app_mentions:read", "channels:history", "channels:read", "chat:write", "groups:history", "groups:read", "im:history", "im:read", "im:write", "mpim:history", "mpim:read", "reactions:read", "reactions:write", "users:read", "files:read", "files:write"]
+        }
+      },
+      "settings": {
+        "event_subscriptions": {
+          "bot_events": ["app_mention", "message.channels", "message.groups", "message.im", "message.mpim"]
+        },
+        "interactivity": { "is_enabled": false },
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": true
+      }
+    }
+    """
 
     var body: some View {
-        PlaceholderStepView(
-            title: "Connect Slack",
-            subtitle: "Create a Slack app and paste your tokens. We'll guide you through it.",
-            step: "Step 5 of 6"
-        ) {
-            state.advance()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Step 5 of 6")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text("Connect Slack")
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                    Text("Create a Slack app and paste your tokens below.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                }
+
+                // Manifest section
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("1. Copy this app manifest:")
+                        .font(.system(size: 13, weight: .medium))
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(slackManifest, forType: .string)
+                                manifestCopied = true
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: manifestCopied ? "checkmark" : "doc.on.doc")
+                                    Text(manifestCopied ? "Copied" : "Copy")
+                                }
+                                .font(.system(size: 11))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.secondary.opacity(0.1))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.top, 6)
+
+                        Text(slackManifest)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .padding(8)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("2. Create the Slack app:")
+                        .font(.system(size: 13, weight: .medium))
+
+                    Button(action: {
+                        if let url = URL(string: "https://api.slack.com/apps?new_app=1&manifest_json=") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.right.square")
+                            Text("Open Slack App Creator")
+                        }
+                        .font(.system(size: 13))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.accent)
+
+                    Text("Paste the manifest, then go to OAuth & Permissions to install and get tokens.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+
+                // Token inputs
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("3. Paste your tokens:")
+                        .font(.system(size: 13, weight: .medium))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Bot Token (xoxb-...)")
+                            .font(.system(size: 12, weight: .medium))
+                        SecureField("xoxb-...", text: $state.slackBotToken)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 13, design: .monospaced))
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("App-Level Token (xapp-...)")
+                            .font(.system(size: 12, weight: .medium))
+                        SecureField("xapp-...", text: $state.slackAppToken)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 13, design: .monospaced))
+                        Text("Generate under Basic Information > App-Level Tokens with connections:write scope.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                HStack {
+                    Spacer()
+                    Button(action: { state.advance() }) {
+                        HStack {
+                            Text("Continue")
+                                .font(.system(size: 15, weight: .semibold))
+                            Image(systemName: "arrow.right")
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(slackTokensValid ? Color.accentColor : Color.secondary.opacity(0.3))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!slackTokensValid)
+                }
+            }
+            .padding(.horizontal, 48)
+            .padding(.vertical, 32)
         }
+    }
+
+    private var slackTokensValid: Bool {
+        state.slackBotToken.hasPrefix("xoxb-") && state.slackAppToken.hasPrefix("xapp-")
     }
 }

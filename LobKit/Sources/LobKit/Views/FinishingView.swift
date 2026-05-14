@@ -2,260 +2,256 @@ import SwiftUI
 
 struct FinishingView: View {
     @EnvironmentObject var state: InstallerState
-    @State private var hasStarted = false
-    @State private var finishError: String? = nil
+    @State private var running = false
+    @State private var allDone = false
+    @State private var errorMessage: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Spacer()
 
-            VStack(alignment: .leading, spacing: 16) {
-                Text("STEP 6 OF 6")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .tracking(1)
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Step 6 of 6")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text("Starting OpenClaw")
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                    Text("Configuring your settings and launching the background service.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                }
 
-                Text("Starting OpenClaw")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-
-                Text("Installing the background service and running a health check.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: 380, alignment: .leading)
-
-                Spacer().frame(height: 8)
-
-                // Task list
-                VStack(spacing: 12) {
-                    ForEach(state.tasks) { task in
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(state.tasks.enumerated()), id: \.element.id) { _, task in
                         FinishingTaskRow(task: task)
                     }
                 }
-                .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.secondary.opacity(0.06))
-                )
 
-                if let error = finishError {
-                    Text(error)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: 380, alignment: .leading)
-                        .padding(.top, 4)
+                if let errorMessage {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                        Text(errorMessage)
+                            .font(.system(size: 13))
+                    }
+                    .padding(12)
+                    .background(Color.red.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                    Button("Retry") {
+                        Task { await runFinishing() }
+                    }
+                    .buttonStyle(.bordered)
                 }
 
-                if finishError != nil {
-                    Spacer().frame(height: 8)
-                    Button(action: { runFinishing() }) {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Retry")
-                                .font(.system(size: 15, weight: .medium))
+                if allDone {
+                    HStack {
+                        Spacer()
+                        Button(action: { state.advance() }) {
+                            HStack {
+                                Text("Finish")
+                                    .font(.system(size: 15, weight: .semibold))
+                                Image(systemName: "checkmark")
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.green)
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(Color.secondary.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 48)
 
             Spacer()
         }
-        .onAppear {
-            guard !hasStarted else { return }
-            hasStarted = true
-            runFinishing()
+        .task {
+            await runFinishing()
         }
     }
 
-    private func runFinishing() {
-        finishError = nil
+    private func runFinishing() async {
+        running = true
+        allDone = false
+        errorMessage = nil
+
         state.tasks = [
-            TaskResult(label: "Writing configuration...", status: .pending),
-            TaskResult(label: "Installing background service...", status: .pending),
-            TaskResult(label: "Starting OpenClaw...", status: .pending),
-            TaskResult(label: "Health check...", status: .pending),
+            TaskResult(label: "Configure model provider", status: .pending),
+            TaskResult(label: "Configure messaging channel", status: .pending),
+            TaskResult(label: "Install gateway daemon", status: .pending),
+            TaskResult(label: "Health check", status: .pending),
         ]
 
-        Task {
-            // Step 1: Write config
-            await setTaskStatus(index: 0, status: .running)
-            let configSuccess = await writeConfig()
-            if !configSuccess {
-                await setTaskStatus(index: 0, status: .failed, detail: "Config write failed")
-                await MainActor.run { finishError = "Failed to write configuration. Check that openclaw is installed." }
-                return
-            }
-            await setTaskStatus(index: 0, status: .success)
+        let svc = state.service
 
-            // Step 2: Install gateway
-            await setTaskStatus(index: 1, status: .running)
-            let installResult = await InstallService.shared.run("openclaw gateway install --force")
-            if installResult.exitCode != 0 {
-                await setTaskStatus(index: 1, status: .failed, detail: installResult.output)
-                await MainActor.run { finishError = "Gateway install failed: \(installResult.output)" }
-                return
-            }
-            await setTaskStatus(index: 1, status: .success)
-
-            // Step 3: Restart gateway
-            await setTaskStatus(index: 2, status: .running)
-            let restartResult = await InstallService.shared.run("openclaw gateway restart")
-            if restartResult.exitCode != 0 {
-                await setTaskStatus(index: 2, status: .failed, detail: restartResult.output)
-                await MainActor.run { finishError = "Gateway restart failed: \(restartResult.output)" }
-                return
-            }
-            await setTaskStatus(index: 2, status: .success)
-
-            // Step 4: Health check
-            await setTaskStatus(index: 3, status: .running)
-            let doctorResult = await InstallService.shared.run("openclaw doctor --non-interactive")
-            if doctorResult.exitCode != 0 {
-                await setTaskStatus(index: 3, status: .failed, detail: doctorResult.output)
-                await MainActor.run { finishError = "Health check failed: \(doctorResult.output)" }
-                return
-            }
-            await setTaskStatus(index: 3, status: .success)
-
-            // All done — auto-advance after 1.5s
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            await MainActor.run { state.advance() }
-        }
-    }
-
-    private func writeConfig() async -> Bool {
-        let tmpDir = FileManager.default.temporaryDirectory
-
-        // Write model config
-        let modelString = modelIdentifier(for: state.modelProvider)
+        // 1. Configure model provider
+        state.tasks[0].status = .running
         let apiKey = state.apiKey.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
-
-        if state.modelProvider != "other" {
-            let modelJSON = """
-            {
-              "agents": { "defaults": { "model": "\(modelString)" } },
-              "auth": { "profiles": [{ "id": "\(state.modelProvider)-default", "provider": "\(state.modelProvider)", "apiKey": "\(apiKey)" }] }
+        let modelJSON = """
+        {"agents":{"defaults":{"model":"\(state.modelId)"}},"auth":{"profiles":[{"id":"\(state.modelProvider)-default","provider":"\(state.modelProvider)","apiKey":"\(apiKey)"}]}}
+        """
+        let modelFile = FileManager.default.temporaryDirectory.appendingPathComponent("lobkit-model-config.json")
+        do {
+            try modelJSON.write(to: modelFile, atomically: true, encoding: .utf8)
+            if await svc.runOk("openclaw config patch --file '\(modelFile.path)'") {
+                state.tasks[0].status = .success
+                state.tasks[0].detail = state.modelDisplayName
+            } else {
+                state.tasks[0].status = .failed
+                state.tasks[0].detail = "Failed to patch model config"
+                errorMessage = "Could not configure the model provider."
+                running = false
+                return
             }
-            """
-            let modelFile = tmpDir.appendingPathComponent("lobkit-model-config.json")
-            do {
-                try modelJSON.write(to: modelFile, atomically: true, encoding: .utf8)
-            } catch {
-                return false
-            }
-            let result = await InstallService.shared.run("openclaw config patch --file '\(modelFile.path)'")
             try? FileManager.default.removeItem(at: modelFile)
-            if result.exitCode != 0 { return false }
+        } catch {
+            state.tasks[0].status = .failed
+            errorMessage = "Could not write config file."
+            running = false
+            return
         }
 
-        // Write channel config
-        if state.channelChoice == .telegram && !state.telegramToken.isEmpty {
+        // 2. Configure channel
+        state.tasks[1].status = .running
+        var channelOk = false
+
+        switch state.channelChoice {
+        case .telegram:
             let tokenEscaped = state.telegramToken.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
             let channelJSON = """
-            { "channels": { "telegram": { "enabled": true, "token": "\(tokenEscaped)" } } }
+            {"channels":{"telegram":{"enabled":true,"token":"\(tokenEscaped)"}}}
             """
-            let channelFile = tmpDir.appendingPathComponent("lobkit-channel-config.json")
+            let channelFile = FileManager.default.temporaryDirectory.appendingPathComponent("lobkit-channel-config.json")
             do {
                 try channelJSON.write(to: channelFile, atomically: true, encoding: .utf8)
+                channelOk = await svc.runOk("openclaw config patch --file '\(channelFile.path)'")
+                try? FileManager.default.removeItem(at: channelFile)
             } catch {
-                return false
+                channelOk = false
             }
-            let result = await InstallService.shared.run("openclaw config patch --file '\(channelFile.path)'")
-            try? FileManager.default.removeItem(at: channelFile)
-            if result.exitCode != 0 { return false }
-        } else if state.channelChoice == .slack && !state.slackBotToken.isEmpty {
+            if channelOk {
+                state.tasks[1].detail = "Telegram (@\(state.telegramBotName))"
+            }
+
+        case .slack:
             let botEscaped = state.slackBotToken.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
             let appEscaped = state.slackAppToken.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
             let channelJSON = """
-            { "channels": { "slack": { "enabled": true, "botToken": "\(botEscaped)", "appToken": "\(appEscaped)" } } }
+            {"channels":{"slack":{"enabled":true,"botToken":"\(botEscaped)","appToken":"\(appEscaped)"}}}
             """
-            let channelFile = tmpDir.appendingPathComponent("lobkit-channel-config.json")
+            let channelFile = FileManager.default.temporaryDirectory.appendingPathComponent("lobkit-channel-config.json")
             do {
                 try channelJSON.write(to: channelFile, atomically: true, encoding: .utf8)
+                channelOk = await svc.runOk("openclaw config patch --file '\(channelFile.path)'")
+                try? FileManager.default.removeItem(at: channelFile)
             } catch {
-                return false
+                channelOk = false
             }
-            let result = await InstallService.shared.run("openclaw config patch --file '\(channelFile.path)'")
-            try? FileManager.default.removeItem(at: channelFile)
-            if result.exitCode != 0 { return false }
+            if channelOk {
+                state.tasks[1].detail = "Slack"
+            }
+
+        case .skip:
+            channelOk = true
+            state.tasks[1].status = .skipped
+            state.tasks[1].detail = "Skipped"
         }
 
-        return true
-    }
-
-    private func modelIdentifier(for provider: String) -> String {
-        switch provider {
-        case "anthropic": return "anthropic/claude-sonnet-4-5"
-        case "openai": return "openai/gpt-4o"
-        case "google": return "google/gemini-2.0-flash"
-        default: return "anthropic/claude-sonnet-4-5"
+        if state.channelChoice != .skip {
+            state.tasks[1].status = channelOk ? .success : .failed
+            if !channelOk {
+                errorMessage = "Could not configure the messaging channel."
+                running = false
+                return
+            }
         }
-    }
 
-    @MainActor
-    private func setTaskStatus(index: Int, status: TaskStatus, detail: String = "") {
-        guard index < state.tasks.count else { return }
-        state.tasks[index].status = status
-        if !detail.isEmpty {
-            state.tasks[index].detail = detail
+        // 3. Install gateway daemon
+        state.tasks[2].status = .running
+        let gatewayOk = await svc.runOk("openclaw gateway install --force && sleep 1 && openclaw gateway restart")
+        state.tasks[2].status = gatewayOk ? .success : .failed
+        if !gatewayOk {
+            state.tasks[2].detail = "Failed — check openclaw doctor"
+            errorMessage = "Gateway install failed. Try running 'openclaw doctor --fix' in Terminal."
+            running = false
+            return
         }
+        state.tasks[2].detail = "LaunchAgent installed"
+
+        // 4. Health check
+        state.tasks[3].status = .running
+        try? await Task.sleep(nanoseconds: 3_000_000_000)
+
+        if let status = await svc.runCapture("openclaw gateway status") {
+            if status.contains("running") || status.contains("listening") || status.contains("18789") {
+                state.tasks[3].status = .success
+                state.tasks[3].detail = "Gateway is running"
+            } else {
+                state.tasks[3].status = .failed
+                state.tasks[3].detail = status
+                errorMessage = "Gateway doesn't appear to be running."
+                running = false
+                return
+            }
+        } else {
+            state.tasks[3].status = .failed
+            state.tasks[3].detail = "Could not check status"
+        }
+
+        running = false
+        allDone = state.tasks.allSatisfy { $0.status == .success || $0.status == .skipped }
     }
 }
-
-// MARK: - Finishing Task Row
 
 struct FinishingTaskRow: View {
     let task: TaskResult
 
     var body: some View {
         HStack(spacing: 12) {
-            taskIcon
-                .frame(width: 22, height: 22)
+            Group {
+                switch task.status {
+                case .pending:
+                    Image(systemName: "circle")
+                        .foregroundStyle(.secondary.opacity(0.3))
+                case .running:
+                    ProgressView()
+                        .scaleEffect(0.6)
+                case .success:
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                case .failed:
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.red)
+                case .skipped:
+                    Image(systemName: "minus.circle")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 20)
 
-            Text(task.label)
-                .font(.system(size: 14, weight: .medium))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.label)
+                    .font(.system(size: 14, weight: .medium))
+                if !task.detail.isEmpty {
+                    Text(task.detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             Spacer()
         }
-
-        if task.status == .failed && !task.detail.isEmpty {
-            Text(task.detail)
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(.red.opacity(0.8))
-                .lineLimit(3)
-                .padding(.leading, 34)
-        }
-    }
-
-    @ViewBuilder
-    private var taskIcon: some View {
-        switch task.status {
-        case .pending:
-            Image(systemName: "circle")
-                .foregroundStyle(.tertiary)
-        case .running:
-            ProgressView()
-                .controlSize(.small)
-        case .success:
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-        case .failed:
-            Image(systemName: "xmark.circle.fill")
-                .foregroundStyle(.red)
-        case .skipped:
-            Image(systemName: "minus.circle.fill")
-                .foregroundStyle(.secondary)
-        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
     }
 }

@@ -86,6 +86,16 @@ else
   fi
 fi
 
+section "[2.5/5] Doctor Check & Auto-Fix"
+
+info "Running openclaw doctor --fix to migrate any legacy config..."
+if [[ $DRY_RUN -eq 0 ]]; then
+  openclaw doctor --fix --non-interactive 2>&1 | tail -10
+  ok "Doctor check complete"
+else
+  info "[DRY RUN] Would run: openclaw doctor --fix --non-interactive"
+fi
+
 section "[3/5] Configure OpenClaw"
 
 # Anthropic model config

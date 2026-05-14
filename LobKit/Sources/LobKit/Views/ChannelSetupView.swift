@@ -209,7 +209,7 @@ struct TelegramStep: View {
                             Image(systemName: "arrow.up.forward")
                                 .font(.system(size: 10))
                         }
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accentColor)
                     }
                     .buttonStyle(.plain)
                 }

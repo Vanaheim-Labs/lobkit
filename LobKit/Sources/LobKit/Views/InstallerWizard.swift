@@ -103,7 +103,7 @@ struct SidebarStepRow: View {
                 } else {
                     Image(systemName: icon)
                         .font(.system(size: 11))
-                        .foregroundStyle(isCurrent ? .accent : .secondary)
+                        .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
                 }
             }
 

@@ -60,7 +60,7 @@ struct BulletRow: View {
         HStack(spacing: 10) {
             Image(systemName: icon)
                 .font(.system(size: 13))
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 18)
             Text(text)
                 .font(.system(size: 14))

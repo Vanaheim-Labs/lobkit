@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Network access for API key validation and Telegram token check -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- Needed to run shell commands (Process/NSTask) -->
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.security.temporary-exception.sbpl</string>
+	</array>
+	<!-- Hardened runtime: allow running unsigned code (for npm/node child processes) -->
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<false/>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>

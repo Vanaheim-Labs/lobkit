@@ -85,7 +85,7 @@ struct ModelSetupView: View {
                                         Image(systemName: "arrow.up.forward")
                                             .font(.system(size: 10))
                                     }
-                                    .foregroundStyle(.accent)
+                                    .foregroundStyle(Color.accentColor)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -281,7 +281,7 @@ struct ProviderButton: View {
                 if let badge {
                     Text(badge)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             .padding(.horizontal, 14)

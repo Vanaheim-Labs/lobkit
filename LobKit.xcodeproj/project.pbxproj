@@ -1,0 +1,382 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0B2F06F96F660F1B529D40FB /* DoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A35C0BD587FA8A4920C55BB /* DoneView.swift */; };
+		0FD6D8CD67A9ADE40C3AD094 /* InstallService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CFC5D35D4A4FF305531AEAC /* InstallService.swift */; };
+		101A06D9D4F02C60A030BCB0 /* ChannelSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0969F34781471D95389FAF05 /* ChannelSetupView.swift */; };
+		14D7B2A840D1B7AEF78BB6D4 /* LobKitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D741439B164C83F16E59114A /* LobKitApp.swift */; };
+		1677B64C650067146FF53C93 /* PlaceholderStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E7DA15DD1205E23B827CDE /* PlaceholderStepView.swift */; };
+		39C517C5126B288E8682721A /* ChannelChoiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 261D41E2BFD8D337C2107501 /* ChannelChoiceView.swift */; };
+		3F9CBCB666D852AB60DB5C4C /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F7DCD61B1A4F30537AF044 /* WelcomeView.swift */; };
+		4B7018C3EFB4231BC806CCC8 /* ModelSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1307AED17B8E0B17CEBF0634 /* ModelSetupView.swift */; };
+		78A1DB962E73A1AF42482B45 /* PrerequisitesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA24143438BF515BC99B462 /* PrerequisitesView.swift */; };
+		7B35CA4B016BB951099DDB91 /* FinishingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F4F4203369E6D173C766E23 /* FinishingView.swift */; };
+		B4D948BF51A497DC5FEE16CB /* InstallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583CE79CC28CF534661E4E8D /* InstallView.swift */; };
+		CB8EAA9A012E47C14E5EBAC7 /* InstallerWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B239F37754C22FC3ACE1479 /* InstallerWizard.swift */; };
+		D13843E4638215AEFB0B5311 /* InstallerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E68CFF55AA44F11CF91305 /* InstallerState.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0969F34781471D95389FAF05 /* ChannelSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelSetupView.swift; sourceTree = "<group>"; };
+		1307AED17B8E0B17CEBF0634 /* ModelSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelSetupView.swift; sourceTree = "<group>"; };
+		1A35C0BD587FA8A4920C55BB /* DoneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoneView.swift; sourceTree = "<group>"; };
+		1CFC5D35D4A4FF305531AEAC /* InstallService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallService.swift; sourceTree = "<group>"; };
+		261D41E2BFD8D337C2107501 /* ChannelChoiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelChoiceView.swift; sourceTree = "<group>"; };
+		2EA24143438BF515BC99B462 /* PrerequisitesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrerequisitesView.swift; sourceTree = "<group>"; };
+		2F4F4203369E6D173C766E23 /* FinishingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinishingView.swift; sourceTree = "<group>"; };
+		32180C533ADA04A7D74C47FC /* LobKit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LobKit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		583CE79CC28CF534661E4E8D /* InstallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallView.swift; sourceTree = "<group>"; };
+		5B239F37754C22FC3ACE1479 /* InstallerWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallerWizard.swift; sourceTree = "<group>"; };
+		65E68CFF55AA44F11CF91305 /* InstallerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallerState.swift; sourceTree = "<group>"; };
+		A3F7DCD61B1A4F30537AF044 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		D741439B164C83F16E59114A /* LobKitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LobKitApp.swift; sourceTree = "<group>"; };
+		F1E7DA15DD1205E23B827CDE /* PlaceholderStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderStepView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		08091534BAF97B9052289F44 /* LobKit */ = {
+			isa = PBXGroup;
+			children = (
+				8E80EE764E932DF0A9460F53 /* Sources */,
+			);
+			path = LobKit;
+			sourceTree = "<group>";
+		};
+		2F0395E29451E820E7729C41 = {
+			isa = PBXGroup;
+			children = (
+				08091534BAF97B9052289F44 /* LobKit */,
+				D361DA9B66107B9EB60BC48C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		3692EE6F79DF1F6537189400 /* LobKit */ = {
+			isa = PBXGroup;
+			children = (
+				62EA9FAA84BF107A24362968 /* Model */,
+				E16CF4E2521F34FC9B2AD1C9 /* Services */,
+				DB2BAA27B4EFA009D92D4814 /* Views */,
+				D741439B164C83F16E59114A /* LobKitApp.swift */,
+			);
+			path = LobKit;
+			sourceTree = "<group>";
+		};
+		62EA9FAA84BF107A24362968 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				65E68CFF55AA44F11CF91305 /* InstallerState.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		8E80EE764E932DF0A9460F53 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				3692EE6F79DF1F6537189400 /* LobKit */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		D361DA9B66107B9EB60BC48C /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				32180C533ADA04A7D74C47FC /* LobKit.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DB2BAA27B4EFA009D92D4814 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				261D41E2BFD8D337C2107501 /* ChannelChoiceView.swift */,
+				0969F34781471D95389FAF05 /* ChannelSetupView.swift */,
+				1A35C0BD587FA8A4920C55BB /* DoneView.swift */,
+				2F4F4203369E6D173C766E23 /* FinishingView.swift */,
+				5B239F37754C22FC3ACE1479 /* InstallerWizard.swift */,
+				583CE79CC28CF534661E4E8D /* InstallView.swift */,
+				1307AED17B8E0B17CEBF0634 /* ModelSetupView.swift */,
+				F1E7DA15DD1205E23B827CDE /* PlaceholderStepView.swift */,
+				2EA24143438BF515BC99B462 /* PrerequisitesView.swift */,
+				A3F7DCD61B1A4F30537AF044 /* WelcomeView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		E16CF4E2521F34FC9B2AD1C9 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				1CFC5D35D4A4FF305531AEAC /* InstallService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		110BEDFC901A3943EB770A59 /* LobKit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0613B097C154A8FC531600A3 /* Build configuration list for PBXNativeTarget "LobKit" */;
+			buildPhases = (
+				02FE90DAF2F5B53CCD92BFF8 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LobKit;
+			packageProductDependencies = (
+			);
+			productName = LobKit;
+			productReference = 32180C533ADA04A7D74C47FC /* LobKit.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0A53FC52657CE7E9639E62B3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					110BEDFC901A3943EB770A59 = {
+						DevelopmentTeam = G7LZTFPMNC;
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 726B440B0B612FFEE59C49A5 /* Build configuration list for PBXProject "LobKit" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 2F0395E29451E820E7729C41;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D361DA9B66107B9EB60BC48C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				110BEDFC901A3943EB770A59 /* LobKit */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		02FE90DAF2F5B53CCD92BFF8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39C517C5126B288E8682721A /* ChannelChoiceView.swift in Sources */,
+				101A06D9D4F02C60A030BCB0 /* ChannelSetupView.swift in Sources */,
+				0B2F06F96F660F1B529D40FB /* DoneView.swift in Sources */,
+				7B35CA4B016BB951099DDB91 /* FinishingView.swift in Sources */,
+				0FD6D8CD67A9ADE40C3AD094 /* InstallService.swift in Sources */,
+				B4D948BF51A497DC5FEE16CB /* InstallView.swift in Sources */,
+				D13843E4638215AEFB0B5311 /* InstallerState.swift in Sources */,
+				CB8EAA9A012E47C14E5EBAC7 /* InstallerWizard.swift in Sources */,
+				14D7B2A840D1B7AEF78BB6D4 /* LobKitApp.swift in Sources */,
+				4B7018C3EFB4231BC806CCC8 /* ModelSetupView.swift in Sources */,
+				1677B64C650067146FF53C93 /* PlaceholderStepView.swift in Sources */,
+				78A1DB962E73A1AF42482B45 /* PrerequisitesView.swift in Sources */,
+				3F9CBCB666D852AB60DB5C4C /* WelcomeView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		01EC826136524DD447ED29B5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = LobKit/LobKit.entitlements;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = G7LZTFPMNC;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.vanaheim-labs.lobkit";
+				PRODUCT_NAME = LobKit;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		4E812678D87E0044DE320D4F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = LobKit/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.vanaheim-labs.lobkit";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		9B60044ADE42BACCA45A9FAA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = LobKit/LobKit.entitlements;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = G7LZTFPMNC;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.vanaheim-labs.lobkit";
+				PRODUCT_NAME = LobKit;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		E8CD3C9059D66B9B9A9408F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = LobKit/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.vanaheim-labs.lobkit";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0613B097C154A8FC531600A3 /* Build configuration list for PBXNativeTarget "LobKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E8CD3C9059D66B9B9A9408F4 /* Debug */,
+				4E812678D87E0044DE320D4F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		726B440B0B612FFEE59C49A5 /* Build configuration list for PBXProject "LobKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				01EC826136524DD447ED29B5 /* Debug */,
+				9B60044ADE42BACCA45A9FAA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0A53FC52657CE7E9639E62B3 /* Project object */;
+}

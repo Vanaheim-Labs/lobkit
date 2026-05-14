@@ -1,119 +1,109 @@
 import Foundation
 
-/// Result of running a shell command
-struct ShellResult: Sendable {
-    let exitCode: Int32
-    let output: String
-}
+/// Runs shell commands via Process, streaming stdout/stderr line-by-line.
+/// All callbacks fire on MainActor so views can observe directly.
+@MainActor
+final class InstallService: ObservableObject {
 
-/// Service that runs shell commands asynchronously with proper PATH setup
-actor InstallService {
-    static let shared = InstallService()
+    @Published var lastLine: String = ""
+    @Published var fullOutput: String = ""
 
-    /// PATH that includes common install locations for node, openclaw, homebrew, etc.
-    private var shellPATH: String {
+    /// The user's shell PATH, augmented with common Homebrew / nvm locations
+    /// so that `node`, `brew`, `openclaw` etc. are found even when launched from .app
+    private static let shellPath: String = {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let extra = [
-            "\(home)/.nvm/versions/node/v24.14.0/bin",
-            "\(home)/.nvm/versions/node/v22.16.0/bin",
-            "\(home)/.local/bin",
+        let extras = [
             "/opt/homebrew/bin",
             "/usr/local/bin",
-            "/usr/bin",
-            "/bin",
-            "/usr/sbin",
-            "/sbin",
+            "\(home)/.nvm/versions/node/default/bin",
+            "\(home)/.nvm/versions/node/current/bin",
+            "\(home)/.local/bin",
+            "\(home)/.openclaw/bin",
         ]
-        let current = ProcessInfo.processInfo.environment["PATH"] ?? ""
-        // Prepend extra paths, dedup later doesn't matter
-        return (extra + current.split(separator: ":").map(String.init)).joined(separator: ":")
-    }
+        let existing = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
+        return (extras + [existing]).joined(separator: ":")
+    }()
 
-    /// Run a command and return the full output when done.
-    func run(_ command: String, arguments: [String] = []) async -> ShellResult {
+    /// Run a command string through /bin/zsh, streaming output line-by-line.
+    /// Returns the full combined stdout+stderr and the exit code.
+    @discardableResult
+    func run(_ command: String) async throws -> (output: String, exitCode: Int32) {
+        fullOutput = ""
+        lastLine = ""
+
         let process = Process()
-        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-l", "-c", command]
+        process.environment = {
+            var env = ProcessInfo.processInfo.environment
+            env["PATH"] = Self.shellPath
+            env["TERM"] = "dumb"
+            env["NO_COLOR"] = "1"
+            return env
+        }()
 
-        process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = ["-l", "-c", ([command] + arguments).joined(separator: " ")]
+        let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
-        process.environment = buildEnvironment()
 
-        do {
-            try process.run()
-        } catch {
-            return ShellResult(exitCode: -1, output: "Failed to launch: \(error.localizedDescription)")
+        try process.run()
+
+        var accumulated = ""
+        let handle = pipe.fileHandleForReading
+
+        // Read in a background task, push lines to MainActor
+        let stream = AsyncStream<String> { continuation in
+            handle.readabilityHandler = { fh in
+                let data = fh.availableData
+                if data.isEmpty {
+                    continuation.finish()
+                    return
+                }
+                if let str = String(data: data, encoding: .utf8) {
+                    continuation.yield(str)
+                }
+            }
         }
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        for await chunk in stream {
+            accumulated += chunk
+            fullOutput = accumulated
+            // Extract last non-empty line for status display
+            let lines = chunk.components(separatedBy: .newlines)
+            if let last = lines.last(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) {
+                lastLine = last
+            }
+        }
+
+        handle.readabilityHandler = nil
         process.waitUntilExit()
 
-        let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return ShellResult(exitCode: process.terminationStatus, output: output)
+        return (accumulated, process.terminationStatus)
     }
 
-    /// Run a command and stream output line-by-line via an AsyncStream.
-    func runStreaming(_ command: String) -> (stream: AsyncStream<String>, task: Task<Int32, Never>) {
-        let (stream, continuation) = AsyncStream<String>.makeStream()
-
-        let env = buildEnvironment()
-        let task = Task<Int32, Never> { [env] in
-            let process = Process()
-            let pipe = Pipe()
-
-            process.executableURL = URL(fileURLWithPath: "/bin/bash")
-            process.arguments = ["-l", "-c", command]
-            process.standardOutput = pipe
-            process.standardError = pipe
-            process.environment = env
-
-            do {
-                try process.run()
-            } catch {
-                continuation.yield("Failed to launch: \(error.localizedDescription)")
-                continuation.finish()
-                return -1
-            }
-
-            let handle = pipe.fileHandleForReading
-            // Read in a background thread to avoid blocking
-            let readTask = Task.detached {
-                var buffer = Data()
-                while true {
-                    let chunk = handle.availableData
-                    if chunk.isEmpty { break }
-                    buffer.append(chunk)
-                    // Emit complete lines
-                    while let newlineRange = buffer.range(of: Data([0x0A])) {
-                        let lineData = buffer.subdata(in: buffer.startIndex..<newlineRange.lowerBound)
-                        buffer.removeSubrange(buffer.startIndex...newlineRange.lowerBound)
-                        if let line = String(data: lineData, encoding: .utf8) {
-                            continuation.yield(line)
-                        }
-                    }
-                }
-                // Emit any remaining data
-                if !buffer.isEmpty, let line = String(data: buffer, encoding: .utf8) {
-                    continuation.yield(line)
-                }
-            }
-
-            process.waitUntilExit()
-            await readTask.value
-            continuation.finish()
-            return process.terminationStatus
+    /// Run a command and return true if exit code is 0
+    func runOk(_ command: String) async -> Bool {
+        do {
+            let result = try await run(command)
+            return result.exitCode == 0
+        } catch {
+            return false
         }
-
-        return (stream, task)
     }
 
-    private func buildEnvironment() -> [String: String] {
-        var env = ProcessInfo.processInfo.environment
-        env["PATH"] = shellPATH
-        // Ensure non-interactive
-        env["TERM"] = "dumb"
-        env.removeValue(forKey: "TERM_PROGRAM")
-        return env
+    /// Run a command and return trimmed stdout, or nil on failure
+    func runCapture(_ command: String) async -> String? {
+        do {
+            let result = try await run(command)
+            guard result.exitCode == 0 else { return nil }
+            return result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            return nil
+        }
+    }
+
+    /// Check if a command exists on PATH
+    func commandExists(_ cmd: String) async -> Bool {
+        await runOk("command -v \(cmd)")
     }
 }

@@ -83,7 +83,7 @@ struct ModelSetupView: View {
                         .font(.system(size: 12))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accentColor)
                 }
 
                 HStack {

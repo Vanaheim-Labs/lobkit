@@ -52,7 +52,7 @@ struct TelegramSetupView: View {
                         .font(.system(size: 13))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accentColor)
                 }
 
                 // Token input
@@ -271,7 +271,7 @@ struct SlackSetupView: View {
                         .font(.system(size: 13))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accentColor)
 
                     Text("Paste the manifest, then go to OAuth & Permissions to install and get tokens.")
                         .font(.system(size: 12))

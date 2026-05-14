@@ -147,7 +147,6 @@
 				TargetAttributes = {
 					110BEDFC901A3943EB770A59 = {
 						DevelopmentTeam = G7LZTFPMNC;
-						ProvisioningStyle = Manual;
 					};
 				};
 			};
@@ -228,8 +227,8 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = LobKit/LobKit.entitlements;
-				CODE_SIGN_IDENTITY = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = G7LZTFPMNC;

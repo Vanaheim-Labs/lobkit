@@ -13,12 +13,17 @@ settings:
     PRODUCT_NAME: LobKit
     SWIFT_VERSION: "5.10"
     MACOSX_DEPLOYMENT_TARGET: "13.0"
-    CODE_SIGN_STYLE: Manual
-    DEVELOPMENT_TEAM: G7LZTFPMNC
-    CODE_SIGN_IDENTITY: "Developer ID Application"
     ENABLE_HARDENED_RUNTIME: YES
-    # Entitlements
     CODE_SIGN_ENTITLEMENTS: LobKit/LobKit.entitlements
+  configs:
+    Debug:
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: G7LZTFPMNC
+      CODE_SIGN_IDENTITY: "-"
+    Release:
+      CODE_SIGN_STYLE: Manual
+      DEVELOPMENT_TEAM: G7LZTFPMNC
+      CODE_SIGN_IDENTITY: "Developer ID Application"
 
 targets:
   LobKit:

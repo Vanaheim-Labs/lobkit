@@ -9,6 +9,7 @@ A collection of utilities that give you more visibility, control, and power over
 | Tool | What it does | Install |
 |------|-------------|---------|
 | **[ocwatch](tools/ocwatch/)** | Real-time session activity monitor — stream all agent activity from the terminal | `curl -sL lobkit.com/ocwatch \| bash` |
+| **[ocbudget](tools/ocbudget/)** | Cost and token tracker — see exactly what you're spending by agent, model, or day | `curl -fsSL lobkit.com/ocbudget -o ocbudget.py` |
 | **[installer](tools/installer/)** | Native macOS installer wizard for OpenClaw (SwiftUI) | Build from Xcode |
 
 ## Philosophy

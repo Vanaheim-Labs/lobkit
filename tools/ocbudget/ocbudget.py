@@ -17,7 +17,7 @@ Usage:
   python3 ocbudget.py --json             # JSON output
 """
 
-import os, sys, json, glob, argparse
+import os, sys, json, glob, argparse, re
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
@@ -79,6 +79,95 @@ def cost_bar(cost, max_cost, width=20):
     if ratio > 0.3:
         return f"{YLW}{bar}{R}"
     return f"{GRN}{bar}{R}"
+
+# ── Session label extraction ─────────────────────────────────────────────────
+def extract_session_label(first_msg):
+    """Derive a human-readable label from the first user message in a session."""
+    if not first_msg:
+        return None
+
+    # Cron job: [cron:<id> <name>]
+    m = re.search(r'\[cron:[a-f0-9-]+ ([^\]]+)\]', first_msg)
+    if m:
+        return f'cron: {m.group(1)[:44]}'
+
+    # Heartbeat
+    if '[OpenClaw heartbeat' in first_msg or 'heartbeat poll' in first_msg.lower():
+        return 'heartbeat'
+
+    # Subagent task
+    if '[Subagent Task]' in first_msg:
+        m = re.search(r'\[Subagent Task\]\s*(.{0,60})', first_msg)
+        return f'subagent: {m.group(1).strip()}' if m else 'subagent'
+
+    # Slack message in #channel from Sender: Slack message in #X from Y
+    m = re.search(r'Slack message in (#\S+) from (\w+)', first_msg)
+    if m:
+        return f'{m.group(1)} / {m.group(2)}'
+
+    # Conversation info JSON envelope (newer sessions)
+    m = re.search(r'"conversation_label":\s*"([^"]+)"', first_msg)
+    if m:
+        sender = re.search(r'"sender":\s*"([^"]+)"', first_msg)
+        label = m.group(1)
+        if sender:
+            label += f' / {sender.group(1)}'
+        return label
+
+    m = re.search(r'"chat_id":\s*"channel:(\w+)"', first_msg)
+    if m:
+        return m.group(1)
+
+    # Telegram / WhatsApp system prefix
+    m = re.search(r'\[(\d{4}-\d{2}-\d{2}[^\]]+)\]\s*(?:Telegram|WhatsApp)[^:]+:\s*(.{0,60})', first_msg)
+    if m:
+        return f'telegram: {m.group(2).strip()}'
+
+    return None
+
+
+def session_label_cache(agents_dir):
+    """Build a dict mapping (agent, session_id) -> human label."""
+    cache = {}
+    for fpath in glob.glob(os.path.join(agents_dir, '*/sessions/*.jsonl')):
+        if 'trajectory' in fpath:
+            continue
+        parts = fpath.split('/agents/')
+        if len(parts) < 2:
+            continue
+        agent = parts[1].split('/')[0]
+        session_id = os.path.basename(fpath).replace('.jsonl', '')
+        try:
+            with open(fpath, 'r', errors='replace') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        continue
+                    if obj.get('type') != 'message':
+                        continue
+                    if obj.get('message', {}).get('role') != 'user':
+                        continue
+                    content = obj['message'].get('content', [])
+                    text = ''
+                    for c in content:
+                        if isinstance(c, dict) and c.get('type') == 'text':
+                            text = c['text'][:500]
+                            break
+                        elif isinstance(c, str):
+                            text = c[:500]
+                            break
+                    label = extract_session_label(text)
+                    if label:
+                        cache[(agent, session_id)] = label
+                    break  # only need first user message
+        except Exception:
+            pass
+    return cache
+
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 def load_data(agent_filter=None, since_ts=None):
@@ -252,26 +341,32 @@ def show_by_day(turns):
     rows = sorted(buckets.items(), key=lambda x: x[0])  # chronological
     print_table(rows, "DATE")
 
-def show_by_session(turns, top_n=20):
+def show_by_session(turns, top_n=20, label_cache=None):
     buckets = aggregate(turns, lambda t: (t["agent"], t["session_id"]))
     rows = sorted(buckets.items(), key=lambda x: -x[1]["cost_total"])
 
-    max_cost = max(r[1]["cost_total"] for r in rows) if rows else 1
-    print(f"  {BOLD}{'AGENT':<14}  {'SESSION':>36}  {'COST':>10}  {'TOKENS':>8}  {'TURNS':>6}{R}")
-    print(f"  {'─'*14}  {'─'*36}  {'─'*10}  {'─'*8}  {'─'*6}")
+    print(f"  {BOLD}{'AGENT':<14}  {'COST':>10}  {'TOKENS':>8}  {'TURNS':>6}  {'LABEL / SESSION'}{R}")
+    print(f"  {'─'*14}  {'─'*10}  {'─'*8}  {'─'*6}  {'─'*44}")
 
     for i, ((agent, sid), b) in enumerate(rows):
         if i >= top_n:
             print(f"  {GRY}  … {len(rows) - top_n} more sessions{R}")
             break
-        # find first/last timestamp for this session
         sess_turns = [t for t in turns if t["agent"] == agent and t["session_id"] == sid]
         first_ts = min(t["timestamp"] for t in sess_turns)
-        date_str = first_ts.strftime("%Y-%m-%d %H:%M")
-        print(f"  {CYN}{agent:<14}{R}  {GRY}{sid[:36]}{R}  "
+        date_str = first_ts.strftime("%m-%d %H:%M")
+
+        label = label_cache.get((agent, sid)) if label_cache else None
+        if label:
+            label_str = f"{GRN}{label[:44]}{R}  {DIM}{date_str}{R}"
+        else:
+            label_str = f"{GRY}{sid[:36]}  {date_str}{R}"
+
+        print(f"  {CYN}{agent:<14}{R}  "
               f"{fmt_cost(b['cost_total']):>10}  "
               f"{GRY}{fmt_tokens(b['total_tokens']):>8}{R}  "
-              f"{GRY}{b['turns']:>6,}{R}  {DIM}{date_str}{R}")
+              f"{GRY}{b['turns']:>6,}{R}  "
+              f"{label_str}")
     print()
 
 # ── CSV / JSON output ─────────────────────────────────────────────────────────
@@ -404,6 +499,11 @@ def main():
     t = totals(turns)
     print_totals_bar(t)
 
+    # Build label cache only if needed
+    label_cache = None
+    if "session" in modes:
+        label_cache = session_label_cache(AGENTS_DIR)
+
     for mode in modes:
         if mode == "agent":
             print(f"  {BOLD}By agent:{R}")
@@ -416,7 +516,7 @@ def main():
             show_by_day(turns)
         elif mode == "session":
             print(f"  {BOLD}Top sessions by cost:{R}")
-            show_by_session(turns, top_n=top_n)
+            show_by_session(turns, top_n=top_n, label_cache=label_cache)
 
     print(f"  {GRY}Run with --by-model, --by-day, --by-session for more breakdowns.{R}")
     print(f"  {GRY}Use --csv or --json for machine-readable output.{R}\n")

@@ -40,6 +40,20 @@ python3 ocbudget.py --by-day
 # Most expensive individual sessions
 python3 ocbudget.py --by-session
 
+# Time-series trend with inline sparklines (default dimension: agent)
+python3 ocbudget.py --trend
+
+# Trend by model or by session
+python3 ocbudget.py --trend model
+python3 ocbudget.py --trend session
+
+# Override the bucket (auto-picks: hour for --today, day ≤90d, week beyond)
+python3 ocbudget.py --trend --bucket hour --days 2
+
+# Export the bucketed matrix for external charting
+python3 ocbudget.py --trend --csv  > trend.csv
+python3 ocbudget.py --trend --json > trend.json
+
 # Combine breakdowns
 python3 ocbudget.py --days 7 --by-agent --by-model --by-day
 
@@ -75,6 +89,21 @@ python3 ocbudget.py --json | jq .
   ...
 ```
 
+And `--trend` adds an inline time-series view (per-row scaled, so you see *shape* across agents):
+
+```
+  Trend by agent:
+  Buckets: 30 × day  (2026-05-07 → 2026-06-05)  per-row scale
+
+  AGENT             COST   TURNS  TREND
+  ──────────  ──────────  ──────  ──────────────────────────────
+  themis         $349.72   6,007  ▁▂▃▂▁▃▅▇█▆▄▃▂▁▂▃▅▇█▆▄▃▂▁▂▃▅▇█▆
+  kern           $161.86     318    ▁▂▁▃▅▇█▆▄▃▂▁ ▂▁▃▅▇█▆▄▃▂▁
+  swift          $105.17   1,518  ▁▂▃▅▇█▆▄▃▂▁▂▃▅▇█▆▄▃▂▁▂▃▅▇█▆▄
+```
+
+Pipe `--trend --csv` into a notebook for real charts.
+
 ---
 
 ## Flags reference
@@ -88,6 +117,8 @@ python3 ocbudget.py --json | jq .
 | `--by-model` | — | Break down by model |
 | `--by-day` | — | Break down by day (chronological) |
 | `--by-session` | — | Most expensive sessions |
+| `--trend [DIM]` | — | Time-series trend with inline sparklines (`agent`/`model`/`session`; default `agent`) |
+| `--bucket B` | auto | Bucket granularity for trends: `hour` / `day` / `week` / `auto` |
 | `--top N` | 20 | Max rows per table (0 = all) |
 | `--csv` | — | CSV output |
 | `--json` | — | JSON output |

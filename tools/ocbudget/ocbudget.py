@@ -281,6 +281,73 @@ def aggregate(turns, key_fn):
 def totals(turns):
     return aggregate(turns, lambda _: "total")["total"]
 
+# ── Time bucketing & sparklines ───────────────────────────────────────────────
+SPARK_CHARS = "▁▂▃▄▅▆▇█"  # 8 levels; empty bucket renders as " "
+
+def auto_bucket(since_ts, until_ts, today_flag):
+    """Choose a sensible bucket granularity for the window."""
+    if today_flag:
+        return "hour"
+    if since_ts is None:
+        return "week"  # --all
+    span_days = max(1, (until_ts - since_ts).total_seconds() / 86400)
+    if span_days <= 2:
+        return "hour"
+    if span_days <= 90:
+        return "day"
+    return "week"
+
+def bucket_key(ts, bucket):
+    if bucket == "hour":
+        return ts.strftime("%Y-%m-%d %H:00")
+    if bucket == "day":
+        return ts.strftime("%Y-%m-%d")
+    if bucket == "week":
+        iso = ts.isocalendar()
+        return f"{iso[0]}-W{iso[1]:02d}"
+    raise ValueError(f"unknown bucket: {bucket}")
+
+def bucket_list(since_ts, until_ts, bucket):
+    """Ordered list of bucket keys covering [since_ts, until_ts], inclusive of empties."""
+    keys = []
+    if bucket == "hour":
+        cur = since_ts.replace(minute=0, second=0, microsecond=0)
+        end = until_ts.replace(minute=0, second=0, microsecond=0)
+        while cur <= end:
+            keys.append(cur.strftime("%Y-%m-%d %H:00"))
+            cur += timedelta(hours=1)
+    elif bucket == "day":
+        cur = since_ts.replace(hour=0, minute=0, second=0, microsecond=0)
+        while cur.date() <= until_ts.date():
+            keys.append(cur.strftime("%Y-%m-%d"))
+            cur += timedelta(days=1)
+    elif bucket == "week":
+        cur = since_ts - timedelta(days=since_ts.weekday())
+        cur = cur.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = until_ts - timedelta(days=until_ts.weekday())
+        end = end.replace(hour=0, minute=0, second=0, microsecond=0)
+        while cur <= end:
+            iso = cur.isocalendar()
+            keys.append(f"{iso[0]}-W{iso[1]:02d}")
+            cur += timedelta(days=7)
+    return keys
+
+def sparkline(values, max_val):
+    """Render values as sparkline; per-row scaling means caller passes that row's max."""
+    if max_val <= 0:
+        return " " * len(values)
+    out = []
+    n = len(SPARK_CHARS)
+    for v in values:
+        if v <= 0:
+            out.append(" ")
+        else:
+            # Map (0, max_val] -> [0, n-1]
+            idx = int((v / max_val) * (n - 1) + 0.5)
+            idx = max(0, min(n - 1, idx))
+            out.append(SPARK_CHARS[idx])
+    return "".join(out)
+
 # ── Display modes ─────────────────────────────────────────────────────────────
 def print_header(title, period_label):
     w = 72
@@ -369,7 +436,139 @@ def show_by_session(turns, top_n=20, label_cache=None):
               f"{label_str}")
     print()
 
+# ── Trend (time series) ───────────────────────────────────────────────────────
+def _trend_entity_fns(dimension, label_cache):
+    """Return (key_fn, fmt_fn, col_label) for the trend dimension."""
+    if dimension == "agent":
+        return (lambda t: t["agent"], lambda k: str(k), "AGENT")
+    if dimension == "model":
+        return (lambda t: t["model"], lambda k: str(k), "MODEL")
+    if dimension == "session":
+        def fmt(k):
+            agent, sid = k
+            label = label_cache.get(k) if label_cache else None
+            if label:
+                return f"{agent}/{label[:30]}"
+            return f"{agent}/{sid[:8]}"
+        return (lambda t: (t["agent"], t["session_id"]), fmt, "SESSION")
+    raise ValueError(f"unknown trend dimension: {dimension}")
+
+def build_trend(turns, dimension, since_ts, until_ts, bucket, label_cache=None):
+    """
+    Build a time-bucketed matrix.
+    Returns: (buckets, rows) where
+      buckets = ordered list of bucket-key strings
+      rows = list of {entity, label, values, cost_total, total_tokens, turns}
+             sorted by cost_total desc
+    """
+    key_fn, fmt_fn, col_label = _trend_entity_fns(dimension, label_cache)
+
+    # Window: derive from turns when --all
+    if since_ts is None:
+        since_ts = min(t["timestamp"] for t in turns)
+    if until_ts is None:
+        until_ts = max(t["timestamp"] for t in turns)
+
+    buckets = bucket_list(since_ts, until_ts, bucket)
+    bucket_idx = {b: i for i, b in enumerate(buckets)}
+
+    matrix = defaultdict(lambda: [0.0] * len(buckets))
+    summary = defaultdict(lambda: {"cost_total": 0.0, "total_tokens": 0, "turns": 0})
+
+    for t in turns:
+        ent = key_fn(t)
+        bk = bucket_key(t["timestamp"], bucket)
+        i = bucket_idx.get(bk)
+        if i is None:
+            continue
+        matrix[ent][i] += t["cost_total"]
+        s = summary[ent]
+        s["cost_total"]   += t["cost_total"]
+        s["total_tokens"] += t["total_tokens"]
+        s["turns"]        += 1
+
+    rows = []
+    for ent, s in summary.items():
+        rows.append({
+            "entity":       ent,
+            "label":        fmt_fn(ent),
+            "values":       matrix[ent],
+            "cost_total":   s["cost_total"],
+            "total_tokens": s["total_tokens"],
+            "turns":        s["turns"],
+        })
+    rows.sort(key=lambda r: -r["cost_total"])
+    return buckets, rows, col_label
+
+def show_trend(turns, dimension, since_ts, until_ts, bucket, top_n, label_cache=None):
+    buckets, rows, col_label = build_trend(
+        turns, dimension, since_ts, until_ts, bucket, label_cache
+    )
+    if not rows:
+        print(f"  {GRY}No data.{R}")
+        return
+
+    label_w = max(len(r["label"]) for r in rows)
+    label_w = max(label_w, len(col_label))
+    spark_w = len(buckets)
+
+    print(f"  {GRY}Buckets: {len(buckets)} × {bucket}  "
+          f"({buckets[0]} → {buckets[-1]})  per-row scale{R}")
+    print()
+    print(f"  {BOLD}{col_label:<{label_w}}  {'COST':>10}  {'TURNS':>6}  "
+          f"TREND{R}")
+    print(f"  {'─'*label_w}  {'─'*10}  {'─'*6}  {'─'*spark_w}")
+
+    for i, r in enumerate(rows):
+        if i >= top_n:
+            print(f"  {GRY}  … {len(rows) - top_n} more rows (use --top 0 to show all){R}")
+            break
+        row_max = max(r["values"]) if r["values"] else 0
+        spark = sparkline(r["values"], row_max)
+        print(f"  {CYN}{r['label']:<{label_w}}{R}  "
+              f"{fmt_cost(r['cost_total']):>10}  "
+              f"{GRY}{r['turns']:>6,}{R}  "
+              f"{spark}")
+    print()
+
 # ── CSV / JSON output ─────────────────────────────────────────────────────────
+def output_trend_csv(turns, dimension, since_ts, until_ts, bucket, label_cache=None):
+    import csv, io
+    out = io.StringIO()
+    w = csv.writer(out)
+    buckets, rows, col_label = build_trend(
+        turns, dimension, since_ts, until_ts, bucket, label_cache
+    )
+    w.writerow([col_label.lower()] + buckets + ["cost_total", "total_tokens", "turns"])
+    for r in rows:
+        w.writerow(
+            [r["label"]]
+            + [round(v, 6) for v in r["values"]]
+            + [round(r["cost_total"], 6), r["total_tokens"], r["turns"]]
+        )
+    print(out.getvalue(), end="")
+
+def output_trend_json(turns, dimension, since_ts, until_ts, bucket, label_cache=None):
+    buckets, rows, col_label = build_trend(
+        turns, dimension, since_ts, until_ts, bucket, label_cache
+    )
+    payload = {
+        "dimension":  dimension,
+        "bucket":     bucket,
+        "buckets":    buckets,
+        "rows": [
+            {
+                "label":        r["label"],
+                "values":       [round(v, 6) for v in r["values"]],
+                "cost_total":   round(r["cost_total"], 6),
+                "total_tokens": r["total_tokens"],
+                "turns":        r["turns"],
+            }
+            for r in rows
+        ],
+    }
+    print(json.dumps(payload, indent=2))
+
 def output_csv(turns, mode):
     import csv, io
     out = io.StringIO()
@@ -444,6 +643,12 @@ def main():
     p.add_argument("--by-model",   action="store_true",   help="Break down by model")
     p.add_argument("--by-day",     action="store_true",   help="Break down by day")
     p.add_argument("--by-session", action="store_true",   help="Most expensive sessions")
+    p.add_argument("--trend",      nargs="?", const="agent",
+                   choices=["agent", "model", "session"],
+                   help="Time-series trend (default dimension: agent)")
+    p.add_argument("--bucket",     choices=["hour", "day", "week", "auto"],
+                   default="auto",
+                   help="Bucket granularity for --trend / --by-day (default: auto)")
     p.add_argument("--top",        type=int, default=20,  help="Max rows per table (0 = all)")
     p.add_argument("--csv",        action="store_true",   help="CSV output")
     p.add_argument("--json",       action="store_true",   help="JSON output")
@@ -455,6 +660,7 @@ def main():
 
     # Determine time window
     now = datetime.now(timezone.utc)
+    until_ts = now
     if args.all:
         since_ts = None
         period = "all time"
@@ -464,6 +670,12 @@ def main():
     else:
         since_ts = now - timedelta(days=args.days)
         period = f"last {args.days} days"
+
+    # Resolve bucket granularity (used by --trend and trend exports)
+    bucket = (
+        auto_bucket(since_ts, until_ts, args.today)
+        if args.bucket == "auto" else args.bucket
+    )
 
     agent_filter = set(args.agents) if args.agents else None
 
@@ -479,17 +691,27 @@ def main():
     if args.by_model:   modes.append("model")
     if args.by_day:     modes.append("day")
     if args.by_session: modes.append("session")
+    if args.trend:      modes.append("trend")
     if args.by_agent or not modes:
         modes = ["agent"] + [m for m in modes if m != "agent"]
 
     top_n = args.top if args.top > 0 else 9999
+    needs_label_cache = ("session" in modes) or (args.trend == "session")
 
     # CSV / JSON fast paths
     if args.csv:
-        output_csv(turns, modes[0])
+        if args.trend:
+            label_cache = session_label_cache(AGENTS_DIR) if args.trend == "session" else None
+            output_trend_csv(turns, args.trend, since_ts, until_ts, bucket, label_cache)
+        else:
+            output_csv(turns, modes[0])
         return
     if args.json:
-        output_json(turns, modes[0])
+        if args.trend:
+            label_cache = session_label_cache(AGENTS_DIR) if args.trend == "session" else None
+            output_trend_json(turns, args.trend, since_ts, until_ts, bucket, label_cache)
+        else:
+            output_json(turns, modes[0])
         return
 
     # Human-readable output
@@ -500,9 +722,7 @@ def main():
     print_totals_bar(t)
 
     # Build label cache only if needed
-    label_cache = None
-    if "session" in modes:
-        label_cache = session_label_cache(AGENTS_DIR)
+    label_cache = session_label_cache(AGENTS_DIR) if needs_label_cache else None
 
     for mode in modes:
         if mode == "agent":
@@ -517,8 +737,12 @@ def main():
         elif mode == "session":
             print(f"  {BOLD}Top sessions by cost:{R}")
             show_by_session(turns, top_n=top_n, label_cache=label_cache)
+        elif mode == "trend":
+            print(f"  {BOLD}Trend by {args.trend}:{R}")
+            show_trend(turns, args.trend, since_ts, until_ts, bucket,
+                       top_n=top_n, label_cache=label_cache)
 
-    print(f"  {GRY}Run with --by-model, --by-day, --by-session for more breakdowns.{R}")
+    print(f"  {GRY}Run with --by-model, --by-day, --by-session, --trend for more breakdowns.{R}")
     print(f"  {GRY}Use --csv or --json for machine-readable output.{R}\n")
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 
 Foundry is an execution engine that builds institutional knowledge as a side effect of getting work done.
 
-**Status:** RFC (Rev 7.2 — Auto-Dispatch wired)
+**Status:** RFC (Rev 7.3 — Decomposition added)
 **Date:** 2026-06-08
 **Authors:** Andrew, Mimir
 
@@ -913,10 +913,13 @@ Build:
 
 Build:
 - Sub-Card creation (manual and agent-initiated)
+- Parent/child linking via `workboard_card_links` (type: `child`, with ordinal)
 - Parent/child lifecycle sync (parent Done when all children Done)
+- Decomposition procedure in skill (§10): when to decompose, how to split, lifecycle rules
+- Max 2 levels deep (parent → children, no grandchildren)
 - Dependency-aware dispatch (children execute in order or parallel as appropriate)
 
-**Gate:** A large Card gets decomposed into 4 sub-Cards. Sub-Cards execute independently. Parent Card completes when all children complete.
+**Gate:** A large Card gets decomposed into 3 sub-Cards. Sub-Cards execute independently. Parent Card completes when all children complete. Tested: parent card decomposed into 3 children (Source update, entity enrichment, synthesis page), all executed and completed, parent auto-completed with combined results.
 
 ### Phase 6: Dashboard + Polish
 

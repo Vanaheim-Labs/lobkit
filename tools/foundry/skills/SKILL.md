@@ -541,6 +541,81 @@ This is a maturity upgrade. Only enable when:
 
 ---
 
+## 10. Decomposition Procedure
+
+When a card's objective is too large for a single execution, decompose it into child cards.
+
+### When to decompose
+
+- *At check-in time:* the distillation recognises multi-step work and creates a parent + children
+- *During execution:* a worker realises the card is too large and decomposes before proceeding
+- *By human request:* "break this down into steps"
+- *Rule of thumb:* if the objective has more than 3 distinct deliverables, or would take a worker >30 minutes, decompose
+
+### How to decompose
+
+*Step 1:* Identify the parent card (the large objective)
+
+*Step 2:* Break the objective into 2-6 independently executable child cards. Each child must have:
+- Its own title (imperative, specific)
+- Its own objective (scoped to one deliverable)
+- Its own definition of done
+- Inherited board and labels from parent
+
+*Step 3:* Create children via CLI:
+```bash
+for each child:
+  openclaw workboard create "{child_title}" \
+    --board {board_id} \
+    --notes "Objective: {child_objective}\n\nDefinition of Done: {child_dod}\n\nParent: {parent_card_id}" \
+    --priority {inherited_priority} \
+    --labels "{inherited_labels}" \
+    --status todo
+```
+
+*Step 4:* Link children to parent in the workboard SQLite:
+```sql
+-- For each child card, create a "child_of" link from the child to the parent
+INSERT INTO workboard_card_links (id, card_id, ordinal, type, target_card_id, title, url, created_at)
+VALUES ('{uuid}', '{child_id}', {ordinal}, 'child_of', '{parent_id}', '{parent_title}', NULL, {now_ms});
+```
+The `child_of` link type means "this card is a child of the target card". Query all children of a parent:
+```sql
+SELECT card_id FROM workboard_card_links WHERE target_card_id = '{parent_id}' AND type = 'child_of';
+```
+
+*Step 5:* Move the parent card to a holding status (or mark it as an orchestration card). The parent completes when all children are done.
+
+### Lifecycle sync
+
+- Children execute independently (potentially in parallel)
+- Dispatch promotion: children stay in `todo` until dependencies (if any) reach `done`, then get promoted to `ready`
+- When ALL children reach `done`, the parent card can be completed
+- If any child is `blocked`, the parent is effectively blocked (but stays in its current status)
+- The agent or dispatch cycle checks: "are all children done?" → if yes, complete the parent with a summary of all child outcomes
+
+### Parent completion format
+
+When completing a parent card after all children finish:
+```
+✅ *Parent complete: {title}*
+
+*Sub-cards completed:*
+• {child1_title} — {child1_proof_summary}
+• {child2_title} — {child2_proof_summary}
+• {child3_title} — {child3_proof_summary}
+
+*Combined output:* {synthesis of all child results}
+```
+
+### What decomposition is NOT
+
+- Not a way to create dependency chains (children are parallel by default)
+- Not infinite recursion (max 2 levels deep: parent → children, no grandchildren)
+- Not required (most cards are single-execution; decompose only when the objective is genuinely too large)
+
+---
+
 ## Source ID Convention
 
 `src_slack_{channel_id}_{thread_ts_integer}`

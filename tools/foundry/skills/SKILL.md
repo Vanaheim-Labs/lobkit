@@ -1,16 +1,18 @@
-# Foundry — Check-In Skill
+# Foundry Skill
 
 > Foundry is an execution engine that builds institutional knowledge as a side effect of getting work done.
 
-This skill defines the procedures for Foundry's three verbs: **Check In**, **Search**, and **Get**.
+This skill defines the procedures for Foundry's three verbs: **Check In**, **Ask/Search/Get**, and **Work**.
 
 ## Trigger Recognition
 
 Respond to these patterns (and natural variants):
-- `check this in` / `check this in to {workspace}`
-- `commit this thread` / `commit this to {workspace}` (legacy alias)
+- `check this in` / `check this in to {workspace}` (Check In)
+- `commit this thread` / `commit this to {workspace}` (legacy alias for Check In)
 - `what does {workspace} know about ...` (Search)
 - `search {workspace} for ...` (Search)
+- `work on the next {workspace} card` / `pick up "{card title}"` (Work)
+- `work on {card_id}` (Work)
 
 ---
 
@@ -257,6 +259,147 @@ When asked to retrieve a specific Source, Page, or Card:
 | Concept pages | `{vault}/concepts/{slug}.md` |
 | Synthesis pages | `{vault}/syntheses/{slug}.md` |
 | Cards | Workboard SQLite (accessed via CLI/tools) |
+
+---
+
+## 4. Work Procedure
+
+Triggered by: `work on the next {workspace} card`, `pick up "{title}"`, `work on {card_id}`
+
+### Step 1: Resolve Card
+
+**By next card:**
+1. Resolve workspace from channel or explicit name
+2. `openclaw workboard list --board {board_id}` and filter for `todo` or `ready` status
+3. Pick the highest-priority card, then oldest by creation date
+4. If no cards available, reply: "No ready cards on the {workspace} board."
+
+**By title or ID:**
+1. `openclaw workboard show {card_id}` or search by title prefix
+2. Verify the card is in a workable state (todo/ready/backlog)
+
+### Step 2: Claim the Card
+
+Use the Workboard agent tool to claim:
+- Call `workboard_claim` with the card ID
+- Card moves to `running` status
+- Record the claim token for later completion
+
+If no agent tool is available, note claim in the card notes and proceed.
+
+### Step 3: Load Context
+
+Read the card's notes to extract:
+- **Objective** — what needs to be done
+- **Definition of Done** — how to verify completion
+- **Source ID** — the originating source
+
+Then load linked context from the wiki vault:
+1. If a Source ID is referenced → read `{vault}/sources/{source_id}.md`
+2. Search wiki for related pages → `openclaw wiki search "{card title keywords}"`
+3. Read the most relevant entity/concept pages for background
+
+This context injection is what makes Foundry cards executable — the agent doesn't need to re-read the original conversation.
+
+### Step 4: Execute
+
+Do the work described in the objective. This could be:
+- Writing code, documents, or analysis
+- Running commands or making API calls
+- Researching and synthesising information
+- Creating files, PRs, or deployments
+
+During execution:
+- Call `workboard_heartbeat` periodically on longer tasks (every 5-10 min)
+- Use `workboard_worker_log` to record significant milestones
+- If stuck → go to Step 6 (Block)
+
+### Step 5: Complete with Proof
+
+When the objective is met and the definition of done is satisfied:
+
+1. Gather proof of completion:
+   - File paths, PR links, test output, screenshots, etc.
+   - A brief summary of what was done and any notable findings
+
+2. Call `workboard_complete` with:
+   - `summary`: What was accomplished
+   - `proof`: Evidence of completion (links, output, etc.)
+
+3. Knowledge write-back (if applicable):
+   - **Findings** discovered during work → append to relevant wiki Pages
+   - **Playbook improvements** → update concept pages if procedures were refined
+   - **New decisions** → DO NOT write directly. Note in completion summary; requires check-in or human approval.
+   - **Cross-workspace writes** → NEVER. Flag in summary for human action.
+
+4. Git commit the vault changes:
+   ```bash
+   cd {vault_path} && git add -A && git commit -m "work: {card_title} [card:{card_id_prefix}]"
+   ```
+
+5. Post completion confirmation:
+   ```
+   ✅ *Card complete: {title}*
+   
+   *Summary:* {what was done}
+   *Proof:* {evidence}
+   *Write-back:* {pages updated, or "none"}
+   ```
+
+### Step 6: Block (if stuck)
+
+When the work cannot proceed without external input:
+
+1. Call `workboard_block` with:
+   - `reason`: Clear description of what's needed
+
+2. Post the question to the originating thread (or workspace default channel)
+
+3. The card stays in `blocked` status until a human replies
+   (Phase 3 adds the automated unblock hook; for now, manual unblock)
+
+### Write-Back Rules
+
+| Write-back type | Allowed during Work? |
+|---|---|
+| Proof links (PR, test output, doc) | ✅ Yes — attach to card |
+| Output summary | ✅ Yes — attach to card |
+| New finding on a Page | ✅ Yes — append to findings block |
+| Playbook refinement | ⚠️ Maybe — small updates OK, major rewrites need approval |
+| New decision on a Page | ❌ No — requires check-in or human approval |
+| Supersede existing decision | ❌ No — requires check-in or human approval |
+| Cross-workspace write | ❌ Never — flag for human action |
+
+---
+
+## 5. Card Create Procedure
+
+To create a card outside of check-in (ad-hoc work):
+
+```bash
+openclaw workboard create "{title}" \
+  --board {board_id} \
+  --notes "Objective: {what to do}\n\nDefinition of Done: {how to verify}\n\nSource: {source_id or 'manual'}" \
+  --priority {low|normal|high|urgent} \
+  --labels "{comma,separated}" \
+  --status todo
+```
+
+Every card MUST have an objective and definition of done in the notes. Cards without these are not valid Foundry cards.
+
+---
+
+## 6. Card Update Procedure
+
+For state changes outside of the Work flow:
+
+- **Add comment:** `workboard_comment` with the card ID and note text
+- **Attach proof:** `workboard_proof` with evidence reference
+- **Unblock:** `workboard_unblock` when a blocked card receives its answer
+- **Reassign:** `workboard_reassign` to change ownership
+- **Decompose:** `workboard_decompose` to fan out a large card into children
+
+---
 
 ## Source ID Convention
 

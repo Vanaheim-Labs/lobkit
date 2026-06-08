@@ -111,24 +111,25 @@ def load_workboard_cards(db_path, board_id):
 
 
 def load_card_links(db_path, board_id):
-    """Load parent/child links."""
+    """Load parent/child links. child_of links: card_id=child, target_card_id=parent."""
     links = {}
     if not os.path.exists(db_path):
         return links
 
     conn = sqlite3.connect(db_path)
     cursor = conn.execute(
-        """SELECT l.card_id, l.target_card_id, l.type, l.title
+        """SELECT l.target_card_id, l.card_id, l.type, c.title
            FROM workboard_card_links l
            JOIN workboard_cards c ON l.card_id = c.id
-           WHERE c.board_id = ? AND l.type = 'child'""",
+           WHERE c.board_id = ? AND l.type = 'child_of'""",
         (board_id,),
     )
     for row in cursor:
-        parent = row[0][:8]
+        parent = row[0][:8]  # target_card_id (parent)
+        child_id = row[1][:8]  # card_id (child)
         if parent not in links:
             links[parent] = []
-        links[parent].append({"child_id": row[1][:8], "title": row[3]})
+        links[parent].append({"child_id": child_id, "title": row[3]})
     conn.close()
     return links
 
@@ -452,32 +453,360 @@ document.addEventListener('keydown', e => {{ if (e.key === 'Escape') closeDetail
 </html>'''
 
 
+def load_manifest(manifest_path):
+    """Load the Foundry manifest."""
+    with open(manifest_path) as f:
+        return json.load(f)
+
+
+def build_multi_workspace_html(workspaces_data):
+    """Generate a multi-workspace dashboard with switcher."""
+    workspace_tabs = ""
+    workspace_contents = ""
+    first = True
+
+    for ws_id, ws in workspaces_data.items():
+        active_class = " active" if first else ""
+        ws_name = ws["name"]
+        pages = ws["pages"]
+        cards = ws["cards"]
+        card_links = ws["card_links"]
+
+        sources = [p for p in pages if p["folder"] == "sources"]
+        entities = [p for p in pages if p["folder"] == "entities"]
+        concepts = [p for p in pages if p["folder"] == "concepts"]
+        syntheses = [p for p in pages if p["folder"] == "syntheses"]
+        knowledge_pages = entities + concepts + syntheses
+
+        active_cards = [c for c in cards if c["status"] not in ("done",)]
+        done_cards = [c for c in cards if c["status"] == "done"]
+        blocked_cards = [c for c in cards if c["status"] == "blocked"]
+
+        workspace_tabs += f'<button class="ws-btn{active_class}" onclick="switchWorkspace(\'{ws_id}\', this)">{html.escape(ws_name)}</button>'
+
+        # Page details
+        page_details = ""
+        for p in pages:
+            pid = f"{ws_id}-{p['path'].replace('/', '-').replace('.', '-')}"
+            body_html = md_to_html_simple(p["body"][:3000])
+            page_details += f'''
+            <div id="page-{pid}" class="page-detail" style="display:none">
+                <div class="detail-header">
+                    <span class="badge badge-{p['pageType']}">{p['pageType']}</span>
+                    <span class="badge">{p['folder']}</span>
+                    {f'<span class="badge badge-status">{p["status"]}</span>' if p["status"] else ''}
+                </div>
+                <h2>{html.escape(p['title'])}</h2>
+                <div class="detail-body">{body_html}</div>
+                <div class="detail-meta">Path: {html.escape(p['path'])}</div>
+            </div>'''
+
+        # Cards HTML
+        cards_html = ""
+        for c in cards:
+            cid = c["id"][:8]
+            emoji = status_emoji(c["status"])
+            pclass = priority_class(c["priority"])
+            notes_preview = (c["notes"] or "")[:120]
+            if len(c["notes"] or "") > 120:
+                notes_preview += "…"
+            date = ts_to_date(c["created_at"])
+            agent = c.get("agent_id") or ""
+            agent_badge = f'<span class="badge">{html.escape(agent)}</span>' if agent else ''
+
+            children_html = ""
+            if cid in card_links:
+                children_items = "".join(
+                    f'<li>{ch["title"]} <span class="card-id">({ch["child_id"]})</span></li>'
+                    for ch in card_links[cid]
+                )
+                children_html = f'<div class="card-children"><strong>Sub-cards:</strong><ul>{children_items}</ul></div>'
+
+            # Load card labels
+            label_badges = ""
+            if "labels" in c and c["labels"]:
+                for lbl in c["labels"]:
+                    label_badges += f'<span class="badge">{html.escape(lbl)}</span>'
+
+            cards_html += f'''
+            <div class="card card-{c['status']} {pclass}" data-status="{c['status']}">
+                <div class="card-header">
+                    <span class="card-status">{emoji} {c['status']}</span>
+                    <span class="card-id">#{cid}</span>
+                    <span class="card-priority">{c['priority']}</span>
+                    {agent_badge}
+                </div>
+                <h3 class="card-title">{html.escape(c['title'])}</h3>
+                <p class="card-notes">{html.escape(notes_preview)}</p>
+                {children_html}
+                <div class="card-meta">{date}</div>
+            </div>'''
+
+        # Sources HTML
+        sources_html = ""
+        for s in sources:
+            sid = f"{ws_id}-{s['path'].replace('/', '-').replace('.', '-')}"
+            sources_html += f'''
+            <div class="source-item" onclick="showPage('page-{sid}')">
+                <h3>{html.escape(s['title'])}</h3>
+                <div class="source-meta">{html.escape(s.get('updatedAt', '')[:10])}</div>
+            </div>'''
+
+        workspace_contents += f'''
+        <div id="ws-{ws_id}" class="ws-content{active_class}">
+            <div class="inner-tabs">
+                <div class="tab active" onclick="showInnerTab('{ws_id}', 'knowledge', this)">Knowledge <span class="count">{len(knowledge_pages)}</span></div>
+                <div class="tab" onclick="showInnerTab('{ws_id}', 'work', this)">Work <span class="count">{len(cards)}</span></div>
+                <div class="tab" onclick="showInnerTab('{ws_id}', 'sources', this)">Sources <span class="count">{len(sources)}</span></div>
+            </div>
+            <div id="{ws_id}-knowledge" class="inner-tab active">
+                <div class="stats">
+                    <div class="stat"><div class="stat-value">{len(entities)}</div><div class="stat-label">Entities</div></div>
+                    <div class="stat"><div class="stat-value">{len(concepts)}</div><div class="stat-label">Concepts</div></div>
+                    <div class="stat"><div class="stat-value">{len(syntheses)}</div><div class="stat-label">Syntheses</div></div>
+                    <div class="stat"><div class="stat-value">{len(sources)}</div><div class="stat-label">Sources</div></div>
+                </div>
+                <div class="page-grid">
+                    {''.join(f"""
+                    <div class="page-card" onclick="showPage('page-{ws_id}-{p['path'].replace('/', '-').replace('.', '-')}')">
+                        <div><span class="badge badge-{p['pageType']}">{p['pageType']}</span><span class="badge">{p['folder']}</span></div>
+                        <h3>{html.escape(p['title'])}</h3>
+                        <div class="page-meta">{html.escape(p.get('entityType', ''))} · {html.escape(p.get('updatedAt', '')[:10])}</div>
+                    </div>""" for p in knowledge_pages) if knowledge_pages else '<p class="empty">No knowledge pages yet. Check in a conversation to get started.</p>'}
+                </div>
+            </div>
+            <div id="{ws_id}-work" class="inner-tab">
+                <div class="stats">
+                    <div class="stat"><div class="stat-value{' green' if not active_cards else ''}">{len(active_cards)}</div><div class="stat-label">Active</div></div>
+                    <div class="stat"><div class="stat-value{' red' if blocked_cards else ''}">{len(blocked_cards)}</div><div class="stat-label">Blocked</div></div>
+                    <div class="stat"><div class="stat-value green">{len(done_cards)}</div><div class="stat-label">Done</div></div>
+                    <div class="stat"><div class="stat-value">{len(cards)}</div><div class="stat-label">Total</div></div>
+                </div>
+                <div class="filter-bar">
+                    <button class="filter-btn active" onclick="filterCards('{ws_id}', 'all', this)">All</button>
+                    <button class="filter-btn" onclick="filterCards('{ws_id}', 'running', this)">Running</button>
+                    <button class="filter-btn" onclick="filterCards('{ws_id}', 'blocked', this)">Blocked</button>
+                    <button class="filter-btn" onclick="filterCards('{ws_id}', 'ready', this)">Ready</button>
+                    <button class="filter-btn" onclick="filterCards('{ws_id}', 'todo', this)">Todo</button>
+                    <button class="filter-btn" onclick="filterCards('{ws_id}', 'review', this)">Review</button>
+                    <button class="filter-btn" onclick="filterCards('{ws_id}', 'done', this)">Done</button>
+                </div>
+                <div id="{ws_id}-cards">
+                    {cards_html if cards_html else '<p class="empty">No cards on this board yet.</p>'}
+                </div>
+            </div>
+            <div id="{ws_id}-sources" class="inner-tab">
+                <div class="stats">
+                    <div class="stat"><div class="stat-value">{len(sources)}</div><div class="stat-label">Committed Sources</div></div>
+                </div>
+                {sources_html if sources_html else '<p class="empty">No sources checked in yet.</p>'}
+            </div>
+            {page_details}
+        </div>'''
+
+        first = False
+
+    return f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foundry Dashboard</title>
+<style>
+:root {{
+    --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+    --border: #30363d; --text: #e6edf3; --text-muted: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --orange: #d29922; --purple: #bc8cff;
+}}
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }}
+.header {{ background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }}
+.header h1 {{ font-size: 20px; font-weight: 600; }}
+.header .tagline {{ color: var(--text-muted); font-size: 13px; flex: 1; }}
+.ws-switcher {{ display: flex; gap: 6px; padding: 8px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }}
+.ws-btn {{ padding: 6px 16px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }}
+.ws-btn:hover {{ color: var(--text); border-color: var(--text-muted); }}
+.ws-btn.active {{ background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }}
+.ws-content {{ display: none; }}
+.ws-content.active {{ display: block; }}
+.inner-tabs {{ display: flex; gap: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; }}
+.tab {{ padding: 12px 20px; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent; font-size: 14px; font-weight: 500; transition: all 0.15s; }}
+.tab:hover {{ color: var(--text); }}
+.tab.active {{ color: var(--accent); border-bottom-color: var(--accent); }}
+.tab .count {{ background: var(--surface2); padding: 1px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px; }}
+.content {{ max-width: 1200px; margin: 0 auto; padding: 24px; }}
+.inner-tab {{ display: none; }}
+.inner-tab.active {{ display: block; }}
+.stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }}
+.stat {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }}
+.stat-value {{ font-size: 28px; font-weight: 700; }}
+.stat-label {{ color: var(--text-muted); font-size: 12px; margin-top: 4px; }}
+.stat-value.green {{ color: var(--green); }}
+.stat-value.orange {{ color: var(--orange); }}
+.stat-value.red {{ color: var(--red); }}
+.page-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }}
+.page-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: pointer; transition: border-color 0.15s; }}
+.page-card:hover {{ border-color: var(--accent); }}
+.page-card h3 {{ font-size: 15px; margin-bottom: 6px; }}
+.page-card .page-meta {{ color: var(--text-muted); font-size: 12px; }}
+.badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: var(--surface2); color: var(--text-muted); margin-right: 4px; }}
+.badge-entity {{ background: #1f3a5f; color: var(--accent); }}
+.badge-source {{ background: #2a1f3f; color: var(--purple); }}
+.badge-synthesis {{ background: #1f3f2a; color: var(--green); }}
+.badge-concept {{ background: #3f2a1f; color: var(--orange); }}
+.card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 10px; border-left: 3px solid var(--border); }}
+.card-done {{ opacity: 0.7; border-left-color: var(--green); }}
+.card-running {{ border-left-color: var(--accent); }}
+.card-blocked {{ border-left-color: var(--red); }}
+.card-ready, .card-todo {{ border-left-color: var(--green); }}
+.card-review {{ border-left-color: var(--orange); }}
+.card-header {{ display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }}
+.card-status {{ font-weight: 600; text-transform: uppercase; }}
+.card-id {{ color: var(--text-muted); font-family: monospace; }}
+.card-priority {{ color: var(--text-muted); }}
+.card-title {{ font-size: 14px; font-weight: 600; margin-bottom: 6px; }}
+.card-notes {{ color: var(--text-muted); font-size: 13px; line-height: 1.4; }}
+.card-meta {{ color: var(--text-muted); font-size: 11px; margin-top: 8px; }}
+.card-children {{ margin-top: 8px; padding: 8px; background: var(--surface2); border-radius: 4px; font-size: 12px; }}
+.card-children ul {{ margin-left: 16px; margin-top: 4px; }}
+.card-children li {{ margin-bottom: 2px; }}
+.priority-high .card-priority {{ color: var(--orange); font-weight: 600; }}
+.filter-bar {{ margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }}
+.filter-btn {{ padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; font-size: 13px; transition: all 0.15s; }}
+.filter-btn:hover, .filter-btn.active {{ background: var(--accent); color: #000; border-color: var(--accent); }}
+.source-item {{ background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s; }}
+.source-item:hover {{ border-color: var(--accent); }}
+.source-item h3 {{ font-size: 14px; margin-bottom: 4px; }}
+.source-meta {{ color: var(--text-muted); font-size: 12px; }}
+.detail-overlay {{ display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: flex-start; padding: 60px 24px; }}
+.detail-overlay.show {{ display: flex; }}
+.detail-panel {{ background: var(--surface); border: 1px solid var(--border); border-radius: 12px; max-width: 720px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 24px; }}
+.detail-panel h2 {{ margin-bottom: 12px; }}
+.detail-body {{ line-height: 1.6; font-size: 14px; }}
+.detail-body h3 {{ margin-top: 16px; margin-bottom: 8px; color: var(--accent); font-size: 15px; }}
+.detail-body ul {{ margin-left: 20px; margin-bottom: 12px; }}
+.detail-body li {{ margin-bottom: 4px; }}
+.detail-body p {{ margin-bottom: 8px; }}
+.detail-meta {{ margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; font-family: monospace; }}
+.detail-header {{ margin-bottom: 12px; }}
+.close-btn {{ float: right; cursor: pointer; font-size: 20px; color: var(--text-muted); background: none; border: none; }}
+.close-btn:hover {{ color: var(--text); }}
+.empty {{ color: var(--text-muted); font-style: italic; padding: 24px; text-align: center; }}
+.generated {{ text-align: center; color: var(--text-muted); font-size: 11px; padding: 24px; }}
+@media (max-width: 640px) {{
+    .header {{ flex-wrap: wrap; }}
+    .ws-switcher {{ overflow-x: auto; }}
+    .page-grid {{ grid-template-columns: 1fr; }}
+    .stats {{ grid-template-columns: repeat(2, 1fr); }}
+}}
+</style>
+</head>
+<body>
+<div class="header">
+    <h1>Foundry</h1>
+    <span class="tagline">Check in a conversation. Foundry remembers what matters and tracks what needs doing.</span>
+</div>
+<div class="ws-switcher">
+    {workspace_tabs}
+</div>
+<div class="content">
+    {workspace_contents}
+</div>
+
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail(event)">
+    <div class="detail-panel" onclick="event.stopPropagation()">
+        <button class="close-btn" onclick="closeDetail()">&times;</button>
+        <div id="detail-content"></div>
+    </div>
+</div>
+
+<div class="generated">Generated {datetime.now().strftime('%d %b %Y %H:%M')} · Foundry v2 (Rev 7.3)</div>
+
+<script>
+function switchWorkspace(id, btn) {{
+    document.querySelectorAll('.ws-content').forEach(w => w.classList.remove('active'));
+    document.querySelectorAll('.ws-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('ws-' + id).classList.add('active');
+    btn.classList.add('active');
+}}
+function showInnerTab(ws, tab, el) {{
+    const container = document.getElementById('ws-' + ws);
+    container.querySelectorAll('.inner-tab').forEach(t => t.classList.remove('active'));
+    container.querySelectorAll('.inner-tabs .tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(ws + '-' + tab).classList.add('active');
+    el.classList.add('active');
+}}
+function filterCards(ws, status, btn) {{
+    const container = document.getElementById(ws + '-cards');
+    btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    container.querySelectorAll('.card').forEach(c => {{
+        c.style.display = (status === 'all' || c.dataset.status === status) ? '' : 'none';
+    }});
+}}
+function showPage(id) {{
+    const el = document.getElementById(id);
+    if (el) {{
+        document.getElementById('detail-content').innerHTML = el.innerHTML;
+        document.getElementById('detail-overlay').classList.add('show');
+    }}
+}}
+function closeDetail(e) {{
+    if (!e || e.target === document.getElementById('detail-overlay'))
+        document.getElementById('detail-overlay').classList.remove('show');
+}}
+document.addEventListener('keydown', e => {{ if (e.key === 'Escape') closeDetail(); }});
+</script>
+</body>
+</html>'''
+
+
 def main():
     parser = argparse.ArgumentParser(description="Foundry Dashboard Generator")
-    parser.add_argument("--vault", default=os.path.expanduser("~/.openclaw/wiki/heimdall"))
-    parser.add_argument("--db", default=os.path.expanduser("~/.openclaw/plugins/workboard/workboard.sqlite"))
+    parser.add_argument("--manifest", default=os.path.expanduser(
+        "~/.openclaw/workspace/lobkit/tools/foundry/config/manifest.json"))
+    parser.add_argument("--db", default=os.path.expanduser(
+        "~/.openclaw/plugins/workboard/workboard.sqlite"))
     parser.add_argument("--out", default="./dist/index.html")
-    parser.add_argument("--workspace", default="heimdall")
-    parser.add_argument("--workspace-name", default="Heimdall")
     args = parser.parse_args()
 
-    print(f"Loading wiki vault: {args.vault}")
-    pages = load_wiki_pages(args.vault)
-    print(f"  → {len(pages)} pages")
+    manifest = load_manifest(args.manifest)
+    workspaces_data = {}
 
-    print(f"Loading workboard: {args.db} (board: {args.workspace})")
-    cards = load_workboard_cards(args.db, args.workspace)
-    print(f"  → {len(cards)} cards")
+    for ws_id, ws_config in manifest["workspaces"].items():
+        vault = os.path.expanduser(ws_config["vault"])
+        board = ws_config["board"]
+        name = ws_config["name"]
 
-    links = load_card_links(args.db, args.workspace)
-    print(f"  → {len(links)} parent cards with children")
+        print(f"\n[{name}] Loading wiki vault: {vault}")
+        if os.path.exists(vault):
+            pages = load_wiki_pages(vault)
+        else:
+            pages = []
+            print(f"  ⚠ Vault not found")
+        print(f"  → {len(pages)} pages")
 
-    html_content = build_html(args.workspace_name, pages, cards, links)
+        print(f"[{name}] Loading workboard: board={board}")
+        cards = load_workboard_cards(args.db, board)
+        print(f"  → {len(cards)} cards")
+
+        links = load_card_links(args.db, board)
+        print(f"  → {len(links)} parent cards with children")
+
+        workspaces_data[ws_id] = {
+            "name": name,
+            "pages": pages,
+            "cards": cards,
+            "card_links": links,
+        }
+
+    html_content = build_multi_workspace_html(workspaces_data)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html_content)
-    print(f"Dashboard written to {out_path} ({len(html_content)} bytes)")
+    print(f"\nDashboard written to {out_path} ({len(html_content)} bytes)")
 
 
 if __name__ == "__main__":

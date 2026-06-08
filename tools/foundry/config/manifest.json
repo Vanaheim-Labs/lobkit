@@ -1,7 +1,8 @@
 {
   "$schema": "./manifest.schema.json",
-  "version": "1.1.0",
-  "description": "Foundry workspace manifest \u2014 defines workspaces, channel routing, notifications, and policies",
+  "version": "2.0.0",
+  "description": "Foundry workspace manifest — agent-routed, not channel-routed",
+
   "workspaces": {
     "heimdall": {
       "name": "Heimdall",
@@ -9,42 +10,24 @@
       "owner": "andrew",
       "vault": "~/.openclaw/wiki/heimdall",
       "board": "heimdall",
-      "agents": [
-        "main",
-        "heimdall"
-      ],
-      "channels": [
-        {
-          "provider": "slack",
-          "account": "default",
-          "ids": [
-            "C0AGSRGQU6Q",
-            "C0AJMGXC14M",
-            "C0AQFJDT2HE"
-          ],
-          "default": true
-        }
-      ],
+      "agents": ["main", "heimdall"],
+      "defaultFor": ["main"],
       "notifications": {
         "channel": "C0AQFJDT2HE",
         "thread": false,
         "on": {
           "checkin.complete": true,
-          "card.created": false,
           "card.claimed": true,
           "card.completed": true,
           "card.blocked": true,
           "card.failed": true,
-          "card.unblocked": false,
-          "page.decision_recorded": true,
-          "page.updated": false,
-          "source.committed": false
-        },
-        "digest": {
-          "enabled": false,
-          "schedule": "daily",
-          "channel": null
+          "page.decision_recorded": true
         }
+      },
+      "dispatch": {
+        "maxConcurrent": 3,
+        "failurePolicy": "block-after-2",
+        "workerModel": null
       },
       "autoCheckin": true,
       "autoDispatch": false,
@@ -54,51 +37,25 @@
         "low_confidence_decision",
         "cross_workspace_reference",
         "sensitive_content"
-      ],
-      "dispatch": {
-        "maxConcurrent": 3,
-        "failurePolicy": "block-after-2",
-        "workerModel": null
-      }
+      ]
     },
+
     "slate": {
       "name": "Slate",
       "description": "Inkl business knowledge base",
       "owner": "andrew",
       "vault": "~/.openclaw/wiki/slate",
       "board": "slate",
-      "agents": [
-        "main"
-      ],
-      "channels": [
-        {
-          "provider": "slack",
-          "account": "default",
-          "ids": [
-            "C0AJZDV0942"
-          ],
-          "default": true
-        }
-      ],
+      "agents": ["main", "ed"],
+      "defaultFor": ["ed"],
       "notifications": {
-        "channel": "C0AJZDV0942",
-        "thread": false,
+        "channel": null,
         "on": {
           "checkin.complete": true,
-          "card.created": false,
-          "card.claimed": true,
           "card.completed": true,
           "card.blocked": true,
           "card.failed": true,
-          "card.unblocked": false,
-          "page.decision_recorded": true,
-          "page.updated": false,
-          "source.committed": false
-        },
-        "digest": {
-          "enabled": false,
-          "schedule": "daily",
-          "channel": null
+          "page.decision_recorded": true
         }
       },
       "autoCheckin": true,
@@ -109,39 +66,22 @@
         "cross_workspace_reference"
       ]
     },
+
     "laurion": {
       "name": "Laurion",
-      "description": "Project Laurion \u2014 financial advice platform",
+      "description": "Project Laurion — financial advice platform",
       "owner": "andrew",
       "vault": "~/.openclaw/wiki/laurion",
       "board": "laurion",
-      "agents": [
-        "main",
-        "themis",
-        "barefoot"
-      ],
-      "channels": [
-        {
-          "provider": "slack",
-          "account": "default",
-          "ids": [],
-          "default": true
-        }
-      ],
+      "agents": ["main", "themis", "barefoot"],
+      "defaultFor": ["themis", "barefoot"],
       "notifications": {
         "channel": null,
-        "thread": false,
         "on": {
           "checkin.complete": true,
           "card.completed": true,
           "card.blocked": true,
-          "card.failed": true,
           "page.decision_recorded": true
-        },
-        "digest": {
-          "enabled": false,
-          "schedule": "daily",
-          "channel": null
         }
       },
       "autoCheckin": false,

@@ -370,6 +370,26 @@ When `autoDispatch: true` is set on a Workspace, Foundry continuously looks for 
 
 Under the hood, auto-dispatch is Workboard's native dispatch system: it selects Ready Cards by priority, avoids duplicate claims, and starts worker sessions through the gateway's sub-agent runtime. Foundry doesn't build its own executor — it configures the native one.
 
+#### Worker Bootstrap Protocol
+
+When a worker agent starts (whether triggered manually or by auto-dispatch), it must follow this sequence before touching the Card's objective:
+
+1. **Load manifest** — read `config/manifest.json` to resolve the Workspace. This gives the worker its vault path, board ID, channel routing, and notification preferences.
+2. **Load Card context** — read the Card itself (`workboard_get`), then follow its links to load:
+   - Linked wiki Pages (findings, decisions, prior knowledge)
+   - The originating Source (the raw conversation/document that spawned this Card)
+   - Parent Card, if this is a sub-Card (for scope and acceptance criteria)
+3. **Load Playbook** — if the Card's labels match a Playbook Page in the wiki, load it. Playbooks are reusable procedures ("how we deploy", "how we write RFCs") that the worker follows instead of improvising.
+4. **Claim the Card** — move status to Running and set `claimed_by` to the worker's agent ID. This prevents double-execution.
+5. **Execute** — do the work described in the objective, referencing the loaded context.
+6. **Write back** — on completion, attach proof, optionally write findings to wiki Pages, and move to Done.
+
+*Anti-patterns to avoid:*
+- Starting work without loading the Card's linked Pages (leads to duplicate or contradictory output)
+- Skipping the manifest lookup (worker doesn't know which vault to write to)
+- Writing findings to the Card's notes instead of wiki Pages (knowledge stays trapped in the Card and doesn't compound)
+- Not claiming before executing (risks another worker picking up the same Card)
+
 **3. Human execution**
 
 Not all Cards are for agents. A Card like "Schedule a meeting with the Auth0 team" is human work. Humans move these Cards through the board manually (via dashboard or Slack commands) and mark them Done when finished.

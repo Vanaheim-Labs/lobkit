@@ -776,6 +776,69 @@ button { cursor: pointer; font-family: inherit; }
 }
 .kanban-card { position: relative; }
 
+/* Dispatch button */
+.dispatch-btn {
+  background: var(--accent);
+  color: var(--pill-on-accent);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.dispatch-btn:hover { opacity: 0.9; }
+.dispatch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.dispatch-btn.loading { animation: pulse 1s ease-in-out infinite; }
+
+/* Per-card play button */
+.kanban-card-play {
+  position: absolute;
+  top: 6px;
+  right: 26px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: var(--accent);
+  padding: 2px 4px;
+  z-index: 5;
+}
+.kanban-card:hover .kanban-card-play { opacity: 0.7; }
+.kanban-card-play:hover { opacity: 1 !important; }
+.kanban-card-play:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Toast notifications */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: toastIn 0.25s ease-out;
+  max-width: 380px;
+}
+.toast.t-success { border-left: 3px solid var(--green); }
+.toast.t-error { border-left: 3px solid var(--red); }
+.toast.t-info { border-left: 3px solid var(--accent); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
 /* Confirm modal */
 .confirm-overlay {
   display: none;
@@ -1326,6 +1389,77 @@ button { cursor: pointer; font-family: inherit; }
 
 .footer-note { text-align: center; color: var(--text-subtle); font-size: 11px; padding: 28px 0 16px; }
 
+/* ── Activity Tab ────────────────────────────────────────── */
+.activity-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.activity-feed { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.activity-row {
+  display: grid;
+  grid-template-columns: 80px 24px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 12px;
+  transition: background 0.1s;
+}
+.activity-row:last-child { border-bottom: none; }
+.activity-row:nth-child(even) { background: var(--surface); }
+.activity-row:nth-child(odd) { background: var(--bg); }
+.activity-row:hover { background: var(--surface2); }
+.activity-ts { font-size: 10px; color: var(--text-subtle); font-family: 'SFMono-Regular', Consolas, monospace; white-space: nowrap; }
+.activity-icon { font-size: 14px; text-align: center; flex-shrink: 0; }
+.activity-body { min-width: 0; }
+.activity-card-title { font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; display: inline-block; vertical-align: middle; }
+.activity-meta { display: flex; align-items: center; gap: 5px; margin-top: 2px; flex-wrap: wrap; }
+.activity-badges { display: flex; align-items: center; gap: 5px; justify-content: flex-end; flex-wrap: wrap; }
+.ws-badge {
+  display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 3px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+  border: 1px solid;
+}
+.ws-heimdall { background: rgba(88,166,255,0.1); color: #79c0ff; border-color: rgba(88,166,255,0.25); }
+.ws-slate { background: rgba(210,153,34,0.1); color: var(--orange); border-color: rgba(210,153,34,0.25); }
+.ws-laurion { background: rgba(63,185,80,0.1); color: var(--green); border-color: rgba(63,185,80,0.25); }
+.ws-default { background: var(--surface2); color: var(--text-muted); border-color: var(--border); }
+.agent-badge {
+  display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 3px;
+  font-size: 10px; font-weight: 500;
+  background: rgba(188,140,255,0.1); color: var(--purple); border: 1px solid rgba(188,140,255,0.25);
+}
+.transition-badge {
+  font-size: 10px; color: var(--text-muted); font-family: 'SFMono-Regular', Consolas, monospace;
+  white-space: nowrap;
+}
+.activity-logs-section { padding: 0 12px 8px; background: var(--surface); border-bottom: 1px solid var(--border-muted); }
+.activity-row.has-logs { flex-wrap: wrap; grid-template-columns: 80px 24px 1fr auto; }
+.log-toggle-btn {
+  background: none; border: none; color: var(--accent); cursor: pointer; font-size: 10px;
+  padding: 2px 0; margin-top: 2px; text-decoration: underline; text-underline-offset: 2px;
+  display: inline-block;
+}
+.log-toggle-btn:hover { color: #79c0ff; }
+.activity-log-body {
+  display: none;
+  background: #0d1117; border: 1px solid var(--border);
+  border-radius: 4px; padding: 6px 8px; margin-top: 4px;
+  max-height: 180px; overflow-y: auto;
+  font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11px;
+}
+.activity-log-body.open { display: block; }
+.activity-log-line { display: flex; gap: 8px; padding: 1px 0; color: #8b949e; }
+.activity-log-line .log-ts { color: #484f58; flex-shrink: 0; }
+.activity-log-line .log-msg { color: #c9d1d9; }
+.activity-row-wrap { display: contents; }
+/* Full-width log row below main row */
+.activity-logrow { grid-column: 1 / -1; padding: 0; }
+.activity-empty { text-align: center; padding: 32px 24px; color: var(--text-muted); font-size: 13px; }
+.activity-filter-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.activity-filter-select {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 10px; color: var(--text); font-size: 12px; outline: none; cursor: pointer;
+}
+.activity-filter-select:focus { border-color: var(--accent); }
+
 @media (max-width: 640px) {
   :root { --panel-width: 100vw; }
   .header-tagline { display: none; }
@@ -1376,6 +1510,7 @@ button { cursor: pointer; font-family: inherit; }
     <div class="shortcut-row"><span class="shortcut-key">1</span><span class="shortcut-desc">Switch to Work tab</span></div>
     <div class="shortcut-row"><span class="shortcut-key">2</span><span class="shortcut-desc">Switch to Knowledge tab</span></div>
     <div class="shortcut-row"><span class="shortcut-key">3</span><span class="shortcut-desc">Switch to Sources tab</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">4</span><span class="shortcut-desc">Switch to Activity tab</span></div>
   </div>
 </div>
 
@@ -1390,6 +1525,9 @@ button { cursor: pointer; font-family: inherit; }
     </div>
   </div>
 </div>
+
+<!-- Toast notifications -->
+<div class="toast-container" id="toast-container"></div>
 
 <div class="footer-note" id="footer-note">Generated __BUILD_TS__ · Foundry v4<span id="footer-stats"></span></div>
 
@@ -1680,6 +1818,10 @@ function renderWorkspace() {
   const knowledge = pages.filter(p => p.folder !== 'sources');
   const sources = pages.filter(p => p.folder === 'sources');
 
+  // Count total events across ALL workspaces for Activity badge
+  const allEventsCount = Object.values(window.FOUNDRY_DATA.workspaces)
+    .flatMap(w => (w.cards||[]).flatMap(c => c.events||[])).length;
+
   document.getElementById('tabs-container').innerHTML = `
     <nav class="inner-tabs">
       <div class="itab ${CTAB==='work'?'active':''}" onclick="switchTab('work')">
@@ -1691,6 +1833,9 @@ function renderWorkspace() {
       <div class="itab ${CTAB==='sources'?'active':''}" onclick="switchTab('sources')">
         Sources <span class="badge-count">${sources.length}</span>
       </div>
+      <div class="itab ${CTAB==='activity'?'active':''}" onclick="switchTab('activity')">
+        Activity <span class="badge-count">${allEventsCount}</span>
+      </div>
     </nav>`;
 
   // Update footer stats
@@ -1701,6 +1846,7 @@ function renderWorkspace() {
 
   const mc = document.getElementById('main-content');
   if (CTAB === 'work') { renderWork(); }
+  else if (CTAB === 'activity') { mc.classList.remove('kanban-mode'); renderActivity(); }
   else { mc.classList.remove('kanban-mode'); if (CTAB === 'knowledge') renderKnowledge(); else renderSources(); }
 }
 
@@ -1788,6 +1934,7 @@ function renderWork() {
         <option value="all" ${F_AGENT==='all'?'selected':''}>All agents</option>
         ${agentOpts}
       </select>` : ''}
+      <button class="dispatch-btn" onclick="dispatchAll()" title="Run dispatch pass — promote ready cards and start work">▶ Dispatch</button>
     </div>`;
 
   // Always show core workflow columns; hide scheduled/done only if empty
@@ -1886,6 +2033,7 @@ function kanbanCardHtml(c) {
     onclick="openCard('${esc(c.id)}')"
     ondragstart="onDragStart(event,'${esc(c.id)}')"
     ondragend="onDragEnd(event)">
+    ${(c.status==='ready'||c.status==='todo') ? `<button class="kanban-card-play" onclick="dispatchCard(event,'${esc(c.id)}')" title="Start this card">▶</button>` : ''}
     <button class="kanban-card-delete" onclick="promptDelete(event,'${esc(c.id)}','${safeTitle}')" title="Archive card">🗑</button>
     <div class="kanban-card-pills">
       ${priorityPill(c.priority)}
@@ -2461,7 +2609,217 @@ document.addEventListener('keydown', e => {
   if (e.key === '1') { switchTab('work'); return; }
   if (e.key === '2') { switchTab('knowledge'); return; }
   if (e.key === '3') { switchTab('sources'); return; }
+  if (e.key === '4') { switchTab('activity'); return; }
 });
+
+// ── Activity Tab ─────────────────────────────────────────
+
+let ACT_WS_FILTER = 'all';   // activity: workspace filter
+let ACT_KIND_FILTER = 'all'; // activity: event kind filter
+let ACT_SEARCH = '';          // activity: card title search
+let _expandedLogs = {};       // card id → bool
+
+function relTime(ms) {
+  const diff = Date.now() - ms;
+  if (diff < 60000) return Math.floor(diff/1000) + 's ago';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+  const d = Math.floor(diff/86400000);
+  return d === 1 ? '1d ago' : d + 'd ago';
+}
+
+function eventIcon(kind, fromStatus, toStatus) {
+  if (kind === 'created') return '📌';
+  if (kind === 'dispatch') return '🚀';
+  if (kind === 'claimed' || kind === 'claim_acquired') return '🔄';
+  if (kind === 'moved' || kind === 'status_change' || kind === 'status_changed') {
+    const to = toStatus || '';
+    if (to === 'running') return '🏃';
+    if (to === 'done') return '✅';
+    if (to === 'blocked') return '🚫';
+    if (to === 'review') return '👀';
+    if (to === 'ready') return '✅';
+    if (to === 'scheduled') return '📅';
+    return '🔄';
+  }
+  if (kind === 'attempt_updated') return '⚡';
+  if (kind === 'orchestration') return '🧭';
+  if (kind === 'linked') return '🔗';
+  if (kind === 'completed') return '✅';
+  if (kind === 'failed') return '❌';
+  return '●';
+}
+
+function wsBadgeClass(wsId) {
+  const id = (wsId||'').toLowerCase();
+  if (id === 'heimdall') return 'ws-heimdall';
+  if (id === 'slate') return 'ws-slate';
+  if (id === 'laurion') return 'ws-laurion';
+  return 'ws-default';
+}
+
+function toggleLogs(cardId) {
+  _expandedLogs[cardId] = !_expandedLogs[cardId];
+  const body = document.getElementById('logs-' + cardId);
+  if (body) body.classList.toggle('open', !!_expandedLogs[cardId]);
+  const btn = document.getElementById('logtoggle-' + cardId);
+  if (btn) btn.textContent = _expandedLogs[cardId] ? '▼ Hide logs' : '▶ ' + btn.dataset.count + ' log entries';
+}
+
+function renderActivity() {
+  const allWs = window.FOUNDRY_DATA.workspaces;
+
+  // Collect all events from all workspaces
+  const events = [];
+  const cardMap = {}; // cardId → card+wsId
+  for (const [wsId, ws] of Object.entries(allWs)) {
+    for (const card of (ws.cards||[])) {
+      cardMap[card.id] = { ...card, wsId, wsName: ws.name };
+      for (const ev of (card.events||[])) {
+        events.push({
+          ...ev,
+          cardId: card.id,
+          cardTitle: card.title,
+          cardStatus: card.status,
+          agentId: card.agent_id,
+          wsId,
+          wsName: ws.name,
+          logs: card.logs || [],
+        });
+      }
+    }
+  }
+
+  // Sort newest first
+  events.sort((a, b) => (b.at||0) - (a.at||0));
+
+  // Stats: compute against ALL events (before filter)
+  const now = Date.now();
+  const dayStart = new Date(); dayStart.setHours(0,0,0,0);
+  const todayTs = dayStart.getTime();
+  const eventsToday = events.filter(e => (e.at||0) >= todayTs).length;
+
+  // Cards running now (across all workspaces)
+  const allCards = Object.values(allWs).flatMap(w => w.cards||[]);
+  const runningNow = allCards.filter(c => c.status === 'running').length;
+  const doneToday = allCards.filter(c => c.status === 'done' && (c.completed_at||0) >= todayTs).length;
+  const blockedNow = allCards.filter(c => c.status === 'blocked').length;
+
+  // Get unique workspaces and kinds for filter dropdowns
+  const wsIds = [...new Set(events.map(e => e.wsId))];
+  const kinds = [...new Set(events.map(e => e.kind))].sort();
+
+  // Apply filters
+  let filtered = events;
+  if (ACT_WS_FILTER !== 'all') filtered = filtered.filter(e => e.wsId === ACT_WS_FILTER);
+  if (ACT_KIND_FILTER !== 'all') filtered = filtered.filter(e => e.kind === ACT_KIND_FILTER);
+  if (ACT_SEARCH) {
+    const q = ACT_SEARCH.toLowerCase();
+    filtered = filtered.filter(e => (e.cardTitle||'').toLowerCase().includes(q));
+  }
+
+  // Stats HTML
+  const statsHtml = `<div class="activity-stats">
+    <div class="stat-card ${eventsToday>0?'has-value':''}">
+      <div class="stat-value ${eventsToday>0?'c-accent':''}">${eventsToday}</div>
+      <div class="stat-label">Events Today</div>
+    </div>
+    <div class="stat-card ${runningNow>0?'has-value':''}">
+      <div class="stat-value ${runningNow>0?'c-accent':''}">${runningNow}</div>
+      <div class="stat-label">Running Now</div>
+    </div>
+    <div class="stat-card ${doneToday>0?'has-value c-green':''}">
+      <div class="stat-value ${doneToday>0?'c-green':''}">${doneToday}</div>
+      <div class="stat-label">Done Today</div>
+    </div>
+    <div class="stat-card ${blockedNow>0?'has-value c-red':''}">
+      <div class="stat-value ${blockedNow>0?'c-red':''}">${blockedNow}</div>
+      <div class="stat-label">Blocked</div>
+    </div>
+  </div>`;
+
+  // Filter bar
+  const wsOptions = wsIds.map(id => `<option value="${esc(id)}" ${ACT_WS_FILTER===id?'selected':''}>${esc(allWs[id]?.name||id)}</option>`).join('');
+  const kindOptions = kinds.map(k => `<option value="${esc(k)}" ${ACT_KIND_FILTER===k?'selected':''}>${esc(k)}</option>`).join('');
+  const filterBar = `<div class="activity-filter-bar">
+    <select class="activity-filter-select" onchange="ACT_WS_FILTER=this.value;renderActivity()">
+      <option value="all" ${ACT_WS_FILTER==='all'?'selected':''}>All workspaces</option>
+      ${wsOptions}
+    </select>
+    <select class="activity-filter-select" onchange="ACT_KIND_FILTER=this.value;renderActivity()">
+      <option value="all" ${ACT_KIND_FILTER==='all'?'selected':''}>All event types</option>
+      ${kindOptions}
+    </select>
+    <div class="search-wrap" style="flex:1;min-width:160px">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" type="search" placeholder="Filter by card title…"
+        value="${esc(ACT_SEARCH)}" oninput="ACT_SEARCH=this.value;renderActivity()">
+    </div>
+    <span style="color:var(--text-muted);font-size:11px;white-space:nowrap">${filtered.length} event${filtered.length!==1?'s':''}</span>
+  </div>`;
+
+  // Timeline rows
+  let rows = '';
+  if (filtered.length === 0) {
+    rows = `<div class="activity-empty">⚡ No events match the current filter.</div>`;
+  } else {
+    // Track which cards we've already rendered logs for (only once per card, after first event)
+    const logCardsSeen = new Set();
+    for (const ev of filtered.slice(0, 300)) {
+      const icon = eventIcon(ev.kind, ev.from_status, ev.to_status);
+      const tsStr = ev.at ? relTime(ev.at) : '';
+      const ts2 = ev.at ? new Date(ev.at).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+      const wsClass = wsBadgeClass(ev.wsId);
+
+      let transitionHtml = '';
+      if (ev.from_status && ev.to_status) {
+        transitionHtml = `<span class="transition-badge">${esc(ev.from_status)} → ${esc(ev.to_status)}</span>`;
+      } else if (ev.to_status) {
+        transitionHtml = `<span class="transition-badge">→ ${esc(ev.to_status)}</span>`;
+      } else if (ev.from_status) {
+        transitionHtml = `<span class="transition-badge">${esc(ev.from_status)} →</span>`;
+      }
+
+      let agentHtml = '';
+      if (ev.agentId) {
+        agentHtml = `<span class="agent-badge">${esc(ev.agentId)}</span>`;
+      }
+
+      // Logs for this card (shown once, under the first event per card)
+      let logHtml = '';
+      if (ev.logs && ev.logs.length > 0 && !logCardsSeen.has(ev.cardId)) {
+        logCardsSeen.add(ev.cardId);
+        const logLines = ev.logs.map(l => {
+          const lt = l.created_at ? new Date(l.created_at).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}) : '';
+          return `<div class="activity-log-line"><span class="log-ts">${esc(lt)}</span><span class="log-msg">${esc(l.message||'')}</span></div>`;
+        }).join('');
+        logHtml = `<div style="grid-column:1/-1;padding:4px 12px 6px 52px">
+          <button class="log-toggle-btn" id="logtoggle-${esc(ev.cardId)}" data-count="${ev.logs.length}" onclick="toggleLogs('${esc(ev.cardId)}')">▶ ${ev.logs.length} log entr${ev.logs.length===1?'y':'ies'}</button>
+          <div class="activity-log-body" id="logs-${esc(ev.cardId)}">${logLines}</div>
+        </div>`;
+      }
+
+      rows += `<div class="activity-row">
+        <span class="activity-ts" title="${ts2}">${esc(tsStr)}</span>
+        <span class="activity-icon">${icon}</span>
+        <div class="activity-body">
+          <span class="activity-card-title" title="${esc(ev.cardTitle||'')}">${esc(ev.cardTitle||'(untitled)')}</span>
+          <div class="activity-meta">
+            <span style="font-size:10px;color:var(--text-muted);text-transform:capitalize">${esc(ev.kind)}</span>
+            ${transitionHtml}
+          </div>
+        </div>
+        <div class="activity-badges">
+          ${agentHtml}
+          <span class="ws-badge ${wsClass}">${esc(ev.wsName||ev.wsId)}</span>
+        </div>
+      </div>${logHtml}`;
+    }
+  }
+
+  const mc = document.getElementById('main-content');
+  mc.innerHTML = statsHtml + filterBar + `<div class="activity-feed">${rows}</div>`;
+}
 
 // ── Filter handlers ────────────────────────────────────────
 
@@ -2556,6 +2914,64 @@ async function onColDrop(e, newStatus) {
     card.status = oldStatus;
     renderWork();
     alert('Failed to update status: ' + err.message);
+  }
+}
+
+// ── Dispatch ────────────────────────────────────────────────
+
+function showToast(msg, type='info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast t-${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+async function dispatchAll() {
+  const btn = document.querySelector('.dispatch-btn');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.classList.add('loading');
+  const origText = btn.textContent;
+  btn.textContent = '⏳ Dispatching…';
+  try {
+    const resp = await fetch('/api/dispatch', { method: 'POST' });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    const summary = data.started ? `Started ${data.started} card(s)` :
+      data.output ? data.output : 'Dispatch complete';
+    showToast(summary, 'success');
+    await refreshData();
+  } catch (err) {
+    showToast('Dispatch failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.textContent = origText;
+  }
+}
+
+async function dispatchCard(event, cardId) {
+  event.stopPropagation();
+  const btn = event.currentTarget;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  try {
+    const resp = await fetch(`/api/cards/${encodeURIComponent(cardId)}/start`, { method: 'POST' });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    showToast('Dispatch complete', 'success');
+    await refreshData();
+  } catch (err) {
+    showToast('Start failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '▶';
   }
 }
 

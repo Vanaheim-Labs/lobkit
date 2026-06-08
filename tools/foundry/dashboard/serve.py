@@ -310,19 +310,75 @@ class FoundryHandler(BaseHTTPRequestHandler):
             self._serve_html()
         elif path == "/api/data":
             self._serve_data()
+        elif path == "/api/activity":
+            self._serve_activity()
         elif path == "/api/health":
             self._respond_json(200, {"ok": True, "ts": int(time.time() * 1000)})
         else:
             self._respond(404, "text/plain", b"Not found")
 
     def do_OPTIONS(self):
-        """CORS preflight for PATCH/DELETE."""
+        """CORS preflight for PATCH/DELETE/POST."""
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, PATCH, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Content-Length", "0")
         self.end_headers()
+
+    def do_POST(self):
+        path = urlparse(self.path).path.rstrip("/")
+
+        if path == "/api/dispatch":
+            self._dispatch_all()
+            return
+
+        m = _re.match(r'/api/cards/([^/]+)/start$', path)
+        if m:
+            self._dispatch_all()  # dispatch pass handles starting cards
+            return
+
+        self._respond(404, "text/plain", b"Not found")
+
+    def _dispatch_all(self):
+        """Run `openclaw workboard dispatch --json` and return the result."""
+        import subprocess
+        import shutil
+        openclaw = shutil.which("openclaw")
+        if not openclaw:
+            # launchd doesn't inherit shell PATH — check known locations
+            for candidate in ["/opt/homebrew/bin/openclaw",
+                              os.path.expanduser("~/.nvm/versions/node/v24.14.0/bin/openclaw"),
+                              "/usr/local/bin/openclaw"]:
+                if os.path.isfile(candidate):
+                    openclaw = candidate
+                    break
+        if not openclaw:
+            self._respond_json(500, {"error": "openclaw CLI not found in PATH or known locations"})
+            return
+        try:
+            env = os.environ.copy()
+            env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "/usr/bin")
+            result = subprocess.run(
+                [openclaw, "workboard", "dispatch", "--json"],
+                capture_output=True, text=True, timeout=60, env=env,
+            )
+            _cache.invalidate()
+            if result.returncode == 0:
+                try:
+                    data = json.loads(result.stdout)
+                except json.JSONDecodeError:
+                    data = {"ok": True, "output": result.stdout.strip()}
+                self._respond_json(200, data)
+            else:
+                error_msg = result.stderr.strip() or result.stdout.strip() or "Dispatch failed"
+                self._respond_json(500, {"error": error_msg})
+        except subprocess.TimeoutExpired:
+            self._respond_json(504, {"error": "Dispatch timed out after 60s"})
+        except FileNotFoundError:
+            self._respond_json(500, {"error": "openclaw CLI not found"})
+        except Exception as e:
+            self._respond_json(500, {"error": str(e)})
 
     def do_PATCH(self):
         path = urlparse(self.path).path.rstrip("/")
@@ -420,6 +476,44 @@ class FoundryHandler(BaseHTTPRequestHandler):
     def _serve_data(self):
         data = _cache.get()
         body = json.dumps(data, ensure_ascii=False, default=str).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_activity(self):
+        """Merged, sorted event list across all workspaces — more efficient than client-side merging."""
+        data = _cache.get()
+        events = []
+        for ws_id, ws in data["workspaces"].items():
+            ws_name = ws.get("name", ws_id)
+            for card in ws.get("cards", []):
+                card_logs = card.get("logs", [])
+                for ev in card.get("events", []):
+                    events.append({
+                        "kind": ev.get("kind"),
+                        "at": ev.get("at"),
+                        "from_status": ev.get("from_status"),
+                        "to_status": ev.get("to_status"),
+                        "card_id": card["id"],
+                        "card_title": card.get("title", ""),
+                        "card_status": card.get("status", ""),
+                        "agent_id": card.get("agent_id"),
+                        "ws_id": ws_id,
+                        "ws_name": ws_name,
+                        "logs": card_logs,
+                    })
+        # Sort newest-first
+        events.sort(key=lambda e: e.get("at") or 0, reverse=True)
+        result = {
+            "events": events,
+            "total": len(events),
+            "generated_at": int(time.time() * 1000),
+        }
+        body = json.dumps(result, ensure_ascii=False, default=str).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))

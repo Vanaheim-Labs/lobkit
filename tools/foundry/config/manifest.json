@@ -17,6 +17,7 @@
         "thread": false,
         "on": {
           "checkin.complete": true,
+          "card.created": true,
           "card.claimed": true,
           "card.completed": true,
           "card.blocked": true,
@@ -76,11 +77,14 @@
       "agents": ["main", "themis", "barefoot"],
       "defaultFor": ["themis", "barefoot"],
       "notifications": {
-        "channel": null,
+        "channel": "C0AQFJDT2HE",
         "on": {
           "checkin.complete": true,
+          "card.created": true,
+          "card.claimed": true,
           "card.completed": true,
           "card.blocked": true,
+          "card.failed": true,
           "page.decision_recorded": true
         }
       },

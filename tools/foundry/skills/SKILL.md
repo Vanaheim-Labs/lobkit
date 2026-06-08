@@ -326,6 +326,17 @@ During execution:
 - Use `workboard_worker_log` to record significant milestones
 - If stuck → go to Step 6 (Block)
 
+> **Agent tools vs CLI commands:**
+> `workboard_heartbeat`, `workboard_complete`, `workboard_block`, `workboard_claim`,
+> `workboard_worker_log`, `workboard_comment`, `workboard_proof`, `workboard_unblock`,
+> `workboard_decompose`, and `workboard_read` are **agent tools** — call them directly
+> as tool calls (like any other tool in your tool list). They are NOT CLI commands.
+> Do NOT try to run them via `openclaw workboard_complete` or Bash.
+>
+> The `openclaw workboard` **CLI** (`openclaw workboard create`, `openclaw workboard list`,
+> `openclaw workboard show`, `openclaw workboard dispatch`) is a separate operator surface
+> for humans and scripts. Agents in a worker session should use the agent tools, not the CLI.
+
 ### Step 5: Complete with Proof
 
 When the objective is met and the definition of done is satisfied:

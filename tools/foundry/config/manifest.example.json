@@ -1,0 +1,41 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": "2.0.0",
+  "description": "Foundry workspace manifest — edit this for your gateway",
+
+  "workspaces": {
+    "knowledge": {
+      "name": "Knowledge",
+      "description": "Your organisation's knowledge base",
+      "owner": "your-name",
+      "vault": "~/.openclaw/wiki/knowledge",
+      "board": "knowledge",
+      "agents": ["main"],
+      "defaultFor": ["main"],
+      "notifications": {
+        "channel": null,
+        "thread": false,
+        "on": {
+          "checkin.complete": true,
+          "card.claimed": true,
+          "card.completed": true,
+          "card.blocked": true,
+          "card.failed": true,
+          "page.decision_recorded": true
+        }
+      },
+      "dispatch": {
+        "maxConcurrent": 3,
+        "failurePolicy": "block-after-2",
+        "workerModel": null
+      },
+      "autoCheckin": false,
+      "autoDispatch": false,
+      "approvalRequired": [
+        "more_than_5_cards",
+        "updates_existing_decisions",
+        "cross_workspace_reference"
+      ]
+    }
+  }
+}

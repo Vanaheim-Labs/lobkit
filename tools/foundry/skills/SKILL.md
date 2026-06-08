@@ -1,3 +1,8 @@
+---
+name: foundry
+description: Check in Slack threads and conversations to Foundry workspaces as institutional knowledge. Responds to "check this in", "check this in to {workspace}", "commit this thread", "what does {workspace} know about...", "work on {card}", and similar patterns. Routes by agent ID to the correct workspace (Heimdall, Slate, Laurion).
+---
+
 # Foundry Skill
 
 > Foundry is an execution engine that builds institutional knowledge as a side effect of getting work done.

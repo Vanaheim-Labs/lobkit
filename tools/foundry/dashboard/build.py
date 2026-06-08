@@ -294,7 +294,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   --red: #cf222e;
   --orange: #9a6700;
   --purple: #8250df;
-  --panel-width: 440px;
+  --panel-width: 580px;
   --pill-on-accent: #fff;
   --panel-bg: #ffffff;
   --panel-shadow: 0 0 0 1px rgba(31,35,40,0.04), 0 8px 24px rgba(31,35,40,0.12);
@@ -324,7 +324,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   --overlay-bg: rgba(0,0,0,0.7);
 }
 @media (min-width: 1400px) {
-  :root { --panel-width: 520px; }
+  :root { --panel-width: 700px; }
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { font-size: 14px; }
@@ -439,8 +439,9 @@ button { cursor: pointer; font-family: inherit; }
 }
 .main-content.kanban-mode {
   max-width: none;
-  padding: 20px 24px;
+  padding: 12px 16px;
 }
+.main-content.kanban-mode .stats-grid { display: none; }
 
 /* Stats */
 .stats-grid {
@@ -604,22 +605,22 @@ button { cursor: pointer; font-family: inherit; }
 /* Kanban Board */
 .kanban-board {
   display: flex;
-  gap: 12px;
-  overflow-x: auto;
+  gap: 10px;
   padding-bottom: 12px;
   min-height: 400px;
   align-items: flex-start;
+  height: calc(100vh - 280px);
 }
 .kanban-col {
-  flex: 0 0 280px;
-  min-width: 260px;
-  max-width: 320px;
+  flex: 1 1 0;
+  min-width: 200px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 260px);
+  height: 100%;
+  overflow: hidden;
 }
 .kanban-col-header {
   padding: 10px 14px;
@@ -732,6 +733,92 @@ button { cursor: pointer; font-family: inherit; }
   font-size: 10px;
   color: var(--text-subtle);
 }
+
+/* Drag & Drop */
+.kanban-card[draggable="true"] { cursor: grab; }
+.kanban-card[draggable="true"]:active { cursor: grabbing; }
+.kanban-card.dragging {
+  opacity: 0.4;
+  transform: rotate(2deg);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+.kanban-col-body.drag-over {
+  background: rgba(88,166,255,0.06);
+  border: 2px dashed var(--accent);
+  border-radius: 6px;
+}
+.kanban-col.drag-target .kanban-col-header {
+  background: rgba(88,166,255,0.12);
+}
+
+/* Delete button */
+.kanban-card-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+  z-index: 5;
+}
+.kanban-card:hover .kanban-card-delete { opacity: 1; }
+.kanban-card-delete:hover {
+  color: var(--red);
+  background: rgba(248,81,73,0.1);
+  border-color: rgba(248,81,73,0.3);
+}
+.kanban-card { position: relative; }
+
+/* Confirm modal */
+.confirm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: 300;
+  backdrop-filter: blur(3px);
+  align-items: center;
+  justify-content: center;
+}
+.confirm-overlay.open { display: flex; }
+.confirm-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.confirm-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+.confirm-msg { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.confirm-btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.confirm-cancel {
+  background: var(--surface2);
+  color: var(--text);
+}
+.confirm-cancel:hover { background: var(--surface3); }
+.confirm-danger {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+.confirm-danger:hover { opacity: 0.85; }
 
 /* Pills / Badges */
 .pill {
@@ -955,6 +1042,12 @@ button { cursor: pointer; font-family: inherit; }
 .md-body blockquote { border-left: 3px solid var(--border); padding-left: 10px; color: var(--text-muted); margin-bottom: 8px; }
 .md-body hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
 .md-body a { color: var(--accent); }
+.md-table-wrap { overflow-x: auto; margin-bottom: 10px; border-radius: 6px; border: 1px solid var(--border); }
+.md-table { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.5; }
+.md-table th { background: var(--surface2); font-weight: 600; text-align: left; padding: 7px 10px; border-bottom: 2px solid var(--border); white-space: nowrap; }
+.md-table td { padding: 6px 10px; border-bottom: 1px solid var(--border-muted); vertical-align: top; }
+.md-table tbody tr:last-child td { border-bottom: none; }
+.md-table tbody tr:hover { background: var(--surface2); }
 
 /* Timeline */
 .timeline { display: flex; flex-direction: column; gap: 9px; }
@@ -1286,6 +1379,18 @@ button { cursor: pointer; font-family: inherit; }
   </div>
 </div>
 
+<!-- Confirm Delete Modal -->
+<div class="confirm-overlay" id="confirm-overlay" onclick="cancelConfirm()">
+  <div class="confirm-box" onclick="event.stopPropagation()">
+    <div class="confirm-title" id="confirm-title">Delete card?</div>
+    <div class="confirm-msg" id="confirm-msg">This will archive the card. It won't appear in the board anymore.</div>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-cancel" onclick="cancelConfirm()">Cancel</button>
+      <button class="confirm-btn confirm-danger" id="confirm-action" onclick="execConfirm()">Delete</button>
+    </div>
+  </div>
+</div>
+
 <div class="footer-note" id="footer-note">Generated __BUILD_TS__ · Foundry v4<span id="footer-stats"></span></div>
 
 <script>
@@ -1389,6 +1494,7 @@ function parseNotesSections(notes) {
 function stripMarkdown(text) {
   if (!text) return '';
   return text
+    .replace(/<!--\s*openclaw:wiki:[^>]*-->/g, '')  // strip wiki markers
     .replace(/^---[\s\S]*?---\n?/, '')      // strip frontmatter if any
     .replace(/```[\s\S]*?```/g, '')          // strip code blocks
     .replace(/#+\s+[^\n]+/g, '')             // strip headings
@@ -1405,7 +1511,9 @@ function stripMarkdown(text) {
 // Simple markdown → HTML
 function mdToHtml(text) {
   if (!text) return '';
-  let t = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Strip openclaw wiki managed-block markers before escaping
+  let t = text.replace(/<!--\s*openclaw:wiki:[^>]*-->/g, '');
+  t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   t = t.replace(/```([\s\S]*?)```/g, (_,c) => '<pre><code>' + c.trim() + '</code></pre>');
   t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
   t = t.replace(/^### (.+)$/gm, '<h3>$1</h3>');
@@ -1420,8 +1528,50 @@ function mdToHtml(text) {
   t = t.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
   t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
   const lines = t.split('\n');
-  const out = []; let inUl = false, inOl = false;
-  for (const line of lines) {
+  const out = []; let inUl = false, inOl = false, inTable = false;
+
+  function parseTableRow(line) {
+    let cells = line.replace(/^\|/, '').replace(/\|$/, '').split('|');
+    return cells.map(c => c.trim());
+  }
+  function isTableSep(line) { return /^\|?[\s:]*-{2,}[\s:|-]*\|?$/.test(line.trim()); }
+  function isTableRow(line) { return /^\|.*\|/.test(line.trim()); }
+  function parseAlign(sepLine) {
+    return parseTableRow(sepLine).map(c => {
+      c = c.trim();
+      if (c.startsWith(':') && c.endsWith(':')) return 'center';
+      if (c.endsWith(':')) return 'right';
+      return 'left';
+    });
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Detect markdown table: current line is a pipe row, next line is separator
+    if (!inTable && isTableRow(line) && i + 1 < lines.length && isTableSep(lines[i+1])) {
+      if (inUl) { out.push('</ul>'); inUl = false; }
+      if (inOl) { out.push('</ol>'); inOl = false; }
+      inTable = true;
+      const headers = parseTableRow(line);
+      const aligns = parseAlign(lines[i+1]);
+      i++; // skip separator line
+      out.push('<div class="md-table-wrap"><table class="md-table">');
+      out.push('<thead><tr>' + headers.map((h,j) =>
+        `<th${aligns[j]&&aligns[j]!=='left'?' style="text-align:'+aligns[j]+'"':''}>` + h + '</th>'
+      ).join('') + '</tr></thead>');
+      out.push('<tbody>');
+      // Consume remaining table rows
+      while (i + 1 < lines.length && isTableRow(lines[i+1])) {
+        i++;
+        const cells = parseTableRow(lines[i]);
+        out.push('<tr>' + cells.map((c,j) =>
+          `<td${aligns[j]&&aligns[j]!=='left'?' style="text-align:'+aligns[j]+'"':''}>` + c + '</td>'
+        ).join('') + '</tr>');
+      }
+      out.push('</tbody></table></div>');
+      inTable = false;
+      continue;
+    }
     if (/^\s*[-*] /.test(line)) {
       if (inOl) { out.push('</ol>'); inOl = false; }
       if (!inUl) { out.push('<ul>'); inUl = true; }
@@ -1640,10 +1790,11 @@ function renderWork() {
       </select>` : ''}
     </div>`;
 
-  // Determine which columns to show (hide empty columns for done if filtered, always show active ones)
+  // Always show core workflow columns; hide scheduled/done only if empty
+  const ALWAYS_SHOW = ['todo','ready','running','review','blocked'];
   const visibleCols = F_STATUS !== 'all'
     ? KANBAN_COLUMNS.filter(col => col.id === F_STATUS)
-    : KANBAN_COLUMNS.filter(col => grouped[col.id].length > 0 || ['ready','running','blocked'].includes(col.id));
+    : KANBAN_COLUMNS.filter(col => ALWAYS_SHOW.includes(col.id) || grouped[col.id].length > 0);
 
   const statusFilterHtml = `<div class="status-filters">
     ${['all',...KANBAN_COLUMNS.map(c=>c.id)].map(s => {
@@ -1657,7 +1808,10 @@ function renderWork() {
 
   const columnsHtml = visibleCols.map(col => {
     const colCards = grouped[col.id] || [];
-    return `<div class="kanban-col">
+    return `<div class="kanban-col"
+      ondragover="onColDragOver(event)"
+      ondragleave="onColDragLeave(event)"
+      ondrop="onColDrop(event,'${col.id}')">
       <div class="kanban-col-header">
         <span class="kanban-col-dot ${col.dot}"></span>
         <span class="kanban-col-name">${col.label}</span>
@@ -1727,7 +1881,12 @@ function kanbanCardHtml(c) {
     ? `<span style="font-size:10px;color:var(--text-subtle)" title="${childCount} sub-card${childCount!==1?'s':''}">📌${childCount}</span>`
     : '';
 
-  return `<div class="kanban-card s-${c.status}" onclick="openCard('${esc(c.id)}')">
+  const safeTitle = esc(c.title).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+  return `<div class="kanban-card s-${c.status}" draggable="true"
+    onclick="openCard('${esc(c.id)}')"
+    ondragstart="onDragStart(event,'${esc(c.id)}')"
+    ondragend="onDragEnd(event)">
+    <button class="kanban-card-delete" onclick="promptDelete(event,'${esc(c.id)}','${safeTitle}')" title="Archive card">🗑</button>
     <div class="kanban-card-pills">
       ${priorityPill(c.priority)}
       ${agentPill(c.agent_id)}
@@ -2146,6 +2305,15 @@ function cardPanelHtml(c) {
        </div>`
     : '';
 
+  const panelDeleteTitle = esc(c.title).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+  const deleteBtn = `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+    <button onclick="promptDelete(event,'${esc(c.id)}','${panelDeleteTitle}')" style="
+      background:rgba(248,81,73,0.08);border:1px solid rgba(248,81,73,0.25);color:var(--red);
+      border-radius:6px;padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;
+      display:flex;align-items:center;gap:5px;transition:all 0.15s;
+    " onmouseover="this.style.background='rgba(248,81,73,0.15)'" onmouseout="this.style.background='rgba(248,81,73,0.08)'">🗑 Archive this card</button>
+  </div>`;
+
   return `
     <div class="panel-title">${esc(c.title)}</div>
     ${metaGrid}
@@ -2159,6 +2327,7 @@ function cardPanelHtml(c) {
     ${proofHtml}
     ${commentsHtml}
     ${attachHtml}
+    ${deleteBtn}
   `;
 }
 
@@ -2265,6 +2434,9 @@ document.addEventListener('keydown', e => {
   const inInput = tag === 'input' || tag === 'textarea' || tag === 'select';
 
   if (e.key === 'Escape') {
+    if (document.getElementById('confirm-overlay').classList.contains('open')) {
+      cancelConfirm(); return;
+    }
     if (document.getElementById('shortcuts-overlay').classList.contains('open')) {
       closeShortcuts(); return;
     }
@@ -2311,6 +2483,136 @@ function debSource(v) {
 function setFolder(f) { F_FOLDER = f; F_DECISION = false; renderKnowledge(); }
 function setWikiType(t) { F_WIKI_TYPE = t; renderKnowledge(); }
 function toggleDecision() { F_DECISION = !F_DECISION; F_FOLDER = 'all'; renderKnowledge(); }
+
+// ── Drag & Drop ─────────────────────────────────────────────
+
+let _dragCardId = null;
+
+function onDragStart(e, cardId) {
+  _dragCardId = cardId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', cardId);
+  requestAnimationFrame(() => e.target.classList.add('dragging'));
+}
+
+function onDragEnd(e) {
+  e.target.classList.remove('dragging');
+  _dragCardId = null;
+  // Clean up all drag-over states
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  document.querySelectorAll('.drag-target').forEach(el => el.classList.remove('drag-target'));
+}
+
+function onColDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const body = e.currentTarget.querySelector('.kanban-col-body');
+  if (body) body.classList.add('drag-over');
+  e.currentTarget.classList.add('drag-target');
+}
+
+function onColDragLeave(e) {
+  // Only remove if leaving the column entirely
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    const body = e.currentTarget.querySelector('.kanban-col-body');
+    if (body) body.classList.remove('drag-over');
+    e.currentTarget.classList.remove('drag-target');
+  }
+}
+
+async function onColDrop(e, newStatus) {
+  e.preventDefault();
+  const cardId = e.dataTransfer.getData('text/plain') || _dragCardId;
+  if (!cardId) return;
+  // Clean up visual state
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  document.querySelectorAll('.drag-target').forEach(el => el.classList.remove('drag-target'));
+
+  // Find card's current status
+  const ws = window.FOUNDRY_DATA.workspaces[CWS];
+  const card = (ws.cards||[]).find(c => c.id === cardId);
+  if (!card || card.status === newStatus) return;
+
+  const oldStatus = card.status;
+  // Optimistic update
+  card.status = newStatus;
+  card.updated_at = new Date().toISOString();
+  renderWork();
+
+  try {
+    const resp = await fetch(`/api/cards/${encodeURIComponent(cardId)}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    // Force data refresh on next cycle
+    refreshData();
+  } catch (err) {
+    // Revert on failure
+    card.status = oldStatus;
+    renderWork();
+    alert('Failed to update status: ' + err.message);
+  }
+}
+
+// ── Delete / Archive ────────────────────────────────────────
+
+let _pendingDeleteId = null;
+let _pendingDeleteTitle = null;
+
+function promptDelete(e, cardId, title) {
+  e.stopPropagation();
+  _pendingDeleteId = cardId;
+  _pendingDeleteTitle = title;
+  document.getElementById('confirm-msg').textContent =
+    `Archive "${title}"? It will be removed from the board.`;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function cancelConfirm() {
+  _pendingDeleteId = null;
+  _pendingDeleteTitle = null;
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+async function execConfirm() {
+  const cardId = _pendingDeleteId;
+  if (!cardId) return;
+  cancelConfirm();
+
+  // Optimistic: remove from local data
+  const ws = window.FOUNDRY_DATA.workspaces[CWS];
+  const idx = (ws.cards||[]).findIndex(c => c.id === cardId);
+  let removed = null;
+  if (idx >= 0) {
+    removed = ws.cards.splice(idx, 1)[0];
+  }
+  renderWork();
+  // Also close panel if this card was open
+  closePanel();
+
+  try {
+    const resp = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+      method: 'DELETE',
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    refreshData();
+  } catch (err) {
+    // Revert
+    if (removed && ws.cards) {
+      ws.cards.splice(idx, 0, removed);
+      renderWork();
+    }
+    alert('Failed to archive card: ' + err.message);
+  }
+}
 
 // ── Theme ──────────────────────────────────────────────────
 function applyTheme(theme) {

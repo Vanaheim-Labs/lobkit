@@ -279,6 +279,11 @@ class DataCache:
             self._ts = time.monotonic()
             return self._data
 
+    def invalidate(self):
+        """Force next get() to reload from DB."""
+        with self._lock:
+            self._ts = 0
+
 
 # ─────────────────────────────────────────────
 #  HTTP Handler
@@ -287,6 +292,12 @@ class DataCache:
 # Will be set by main()
 _cache: DataCache = None
 _html_shell: str = None
+_db_path: str = None
+
+
+import re as _re
+
+VALID_STATUSES = ('todo', 'ready', 'running', 'review', 'blocked', 'done', 'scheduled')
 
 
 class FoundryHandler(BaseHTTPRequestHandler):
@@ -303,6 +314,99 @@ class FoundryHandler(BaseHTTPRequestHandler):
             self._respond_json(200, {"ok": True, "ts": int(time.time() * 1000)})
         else:
             self._respond(404, "text/plain", b"Not found")
+
+    def do_OPTIONS(self):
+        """CORS preflight for PATCH/DELETE."""
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, PATCH, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_PATCH(self):
+        path = urlparse(self.path).path.rstrip("/")
+        m = _re.match(r'/api/cards/([^/]+)/status$', path)
+        if m:
+            card_id = m.group(1)
+            body = self._read_body()
+            if body is None:
+                return
+            new_status = body.get('status')
+            if new_status not in VALID_STATUSES:
+                self._respond_json(400, {"error": f"Invalid status. Must be one of: {', '.join(VALID_STATUSES)}"})
+                return
+            try:
+                self._update_card_status(card_id, new_status)
+                _cache.invalidate()
+                self._respond_json(200, {"ok": True, "id": card_id, "status": new_status})
+            except Exception as e:
+                self._respond_json(500, {"error": str(e)})
+            return
+        self._respond(404, "text/plain", b"Not found")
+
+    def do_DELETE(self):
+        path = urlparse(self.path).path.rstrip("/")
+        m = _re.match(r'/api/cards/([^/]+)$', path)
+        if m:
+            card_id = m.group(1)
+            try:
+                self._archive_card(card_id)
+                _cache.invalidate()
+                self._respond_json(200, {"ok": True, "id": card_id, "archived": True})
+            except Exception as e:
+                self._respond_json(500, {"error": str(e)})
+            return
+        self._respond(404, "text/plain", b"Not found")
+
+    def _read_body(self):
+        try:
+            length = int(self.headers.get('Content-Length', 0))
+            raw = self.rfile.read(length)
+            return json.loads(raw) if raw else {}
+        except Exception as e:
+            self._respond_json(400, {"error": f"Invalid JSON: {e}"})
+            return None
+
+    def _update_card_status(self, card_id, new_status):
+        import uuid
+        now_ms = int(time.time() * 1000)
+        conn = sqlite3.connect(_db_path)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT status FROM workboard_cards WHERE id = ?", (card_id,)).fetchone()
+        if not row:
+            conn.close()
+            raise ValueError(f"Card {card_id} not found")
+        old_status = row["status"]
+        conn.execute(
+            "UPDATE workboard_cards SET status = ?, updated_at = ? WHERE id = ?",
+            (new_status, now_ms, card_id),
+        )
+        # Get next ordinal for this card's events
+        max_ord = conn.execute(
+            "SELECT COALESCE(MAX(ordinal), -1) FROM workboard_card_events WHERE card_id = ?",
+            (card_id,),
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT INTO workboard_card_events (id, card_id, ordinal, kind, at, from_status, to_status) "
+            "VALUES (?, ?, ?, 'status_change', ?, ?, ?)",
+            (str(uuid.uuid4()), card_id, max_ord + 1, now_ms, old_status, new_status),
+        )
+        conn.commit()
+        conn.close()
+
+    def _archive_card(self, card_id):
+        now_ms = int(time.time() * 1000)
+        conn = sqlite3.connect(_db_path)
+        result = conn.execute(
+            "UPDATE workboard_cards SET archived_at = ?, updated_at = ? WHERE id = ? AND archived_at IS NULL",
+            (now_ms, now_ms, card_id),
+        )
+        if result.rowcount == 0:
+            conn.close()
+            raise ValueError(f"Card {card_id} not found or already archived")
+        conn.commit()
+        conn.close()
 
     def _serve_html(self):
         body = _html_shell.encode("utf-8")
@@ -329,6 +433,7 @@ class FoundryHandler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
 
@@ -475,7 +580,7 @@ _autoRefreshInterval = setInterval(refreshData, 15000);"""
 # ─────────────────────────────────────────────
 
 def main():
-    global _cache, _html_shell
+    global _cache, _html_shell, _db_path
 
     parser = argparse.ArgumentParser(description="Foundry Dashboard — Live Server")
     parser.add_argument("--port", type=int, default=9500)
@@ -496,7 +601,8 @@ def main():
     with open(args.manifest) as f:
         manifest = json.load(f)
 
-    # Set up cache
+    # Set up cache and DB path for write operations
+    _db_path = args.db
     _cache = DataCache(manifest, args.db, ttl=args.ttl)
 
     # Build HTML shell

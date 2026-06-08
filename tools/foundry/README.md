@@ -54,7 +54,7 @@ See `config/manifest.json` for the workspace definitions. Each workspace maps to
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full Rev 7 design.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full Rev 7.1 design (includes Event Delivery).
 
 ## Implementation phases
 
@@ -63,7 +63,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full Rev 7 design.
 | **0** | Foundation & Cleanup | ✅ Plugins enabled, vaults init'd, v1 archived |
 | **1** | Kernel — Check In | ✅ Thread checked in → Source + Pages + Cards |
 | **2** | Work Loop — Execution | ✅ Agent picks up Card, executes with wiki context, completes with proof |
-| **3** | Blocked Loop | Agent blocks → human replies → agent resumes |
+| **3** | Blocked Loop + Event Delivery | Agent blocks → human replies → agent resumes; card/checkin events published to Slack |
 | **4** | Auto-Dispatch | Cards auto-execute on opt-in workspaces |
 | **5** | Decomposition | Parent/child card lifecycle |
 | **6** | Dashboard + Polish | Three-tab UI, observability, multi-org playbook |

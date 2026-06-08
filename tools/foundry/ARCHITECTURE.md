@@ -4,7 +4,7 @@
 
 Foundry is an execution engine that builds institutional knowledge as a side effect of getting work done.
 
-**Status:** RFC (Rev 7.3 — Decomposition added)
+**Status:** RFC (Rev 7.4 — Dashboard deployed)
 **Date:** 2026-06-08
 **Authors:** Andrew, Mimir
 

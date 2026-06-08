@@ -6,7 +6,7 @@ Foundry is an execution engine that builds institutional knowledge as a side eff
 
 ## Status
 
-**Phase 4** — Auto-Dispatch wired (Rev 7.2). Cards on opt-in workspaces execute automatically without a human prompt. Full check-in → work → block → unblock → auto-dispatch cycle working. Event notifications published to Slack on card lifecycle transitions.
+**Phase 5** — Decomposition complete (Rev 7.3). Parent cards decompose into independently executable children via `workboard_card_links`. Parent completes when all children done. Full lifecycle: check-in → decompose → parallel execution → parent completion. Only Phase 6 (Dashboard + Polish) remains.
 
 ## How it works
 
@@ -54,7 +54,7 @@ See `config/manifest.json` for the workspace definitions. Each workspace maps to
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full Rev 7.1 design (includes Event Delivery).
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full Rev 7.3 design (includes Event Delivery, Auto-Dispatch, Decomposition).
 
 ## Implementation phases
 
@@ -65,5 +65,5 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full Rev 7.1 design (includes Eve
 | **2** | Work Loop — Execution | ✅ Agent picks up Card, executes with wiki context, completes with proof |
 | **3** | Blocked Loop + Event Delivery | ✅ Agent blocks → human replies → agent resumes; card/checkin events published to Slack |
 | **4** | Auto-Dispatch | ✅ Cards auto-execute on opt-in workspaces |
-| **5** | Decomposition | Parent/child card lifecycle |
+| **5** | Decomposition | ✅ Parent decomposed → 3 children execute independently → parent completes when all done |
 | **6** | Dashboard + Polish | Three-tab UI, observability, multi-org playbook |

@@ -8,7 +8,7 @@ A collection of utilities that give you more visibility, control, and power over
 
 | Tool | What it does | Install |
 |------|-------------|---------|
-| **[foundry](tools/foundry/)** | Execution engine that builds institutional knowledge as a side effect of getting work done | Requires OpenClaw ≥ 2026.6.1 |
+| **[foundry](tools/foundry/)** | Check in a conversation. Foundry captures what happened, distils what matters, and tracks what needs doing — using native OpenClaw plugins | Requires OpenClaw ≥ 2026.6.1 |
 | **[ocwatch](tools/ocwatch/)** | Real-time session activity monitor — stream all agent activity from the terminal | `curl -sL lobkit.com/ocwatch \| bash` |
 | **[ocbudget](tools/ocbudget/)** | Cost and token tracker — see exactly what you're spending by agent, model, or day | `curl -fsSL lobkit.com/ocbudget -o ocbudget.py` |
 | **[installer](tools/installer/)** | Native macOS installer wizard for OpenClaw (SwiftUI) | Build from Xcode |

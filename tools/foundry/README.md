@@ -6,7 +6,7 @@ Foundry is an execution engine that builds institutional knowledge as a side eff
 
 ## Status
 
-**Phase 3** — Blocked Loop + Event Delivery complete. Full check-in → work → block → unblock cycle working. Event notifications published to Slack on card lifecycle transitions.
+**Phase 4** — Auto-Dispatch wired (Rev 7.2). Cards on opt-in workspaces execute automatically without a human prompt. Full check-in → work → block → unblock → auto-dispatch cycle working. Event notifications published to Slack on card lifecycle transitions.
 
 ## How it works
 
@@ -64,6 +64,6 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full Rev 7.1 design (includes Eve
 | **1** | Kernel — Check In | ✅ Thread checked in → Source + Pages + Cards |
 | **2** | Work Loop — Execution | ✅ Agent picks up Card, executes with wiki context, completes with proof |
 | **3** | Blocked Loop + Event Delivery | ✅ Agent blocks → human replies → agent resumes; card/checkin events published to Slack |
-| **4** | Auto-Dispatch | Cards auto-execute on opt-in workspaces |
+| **4** | Auto-Dispatch | ✅ Cards auto-execute on opt-in workspaces |
 | **5** | Decomposition | Parent/child card lifecycle |
 | **6** | Dashboard + Polish | Three-tab UI, observability, multi-org playbook |

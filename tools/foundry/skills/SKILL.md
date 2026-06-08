@@ -22,10 +22,14 @@ Respond to these patterns (and natural variants):
 
 Load the manifest at `~/.openclaw/workspace/lobkit/tools/foundry/config/manifest.json`.
 
-Match the current channel ID against the manifest's workspace channel definitions:
-- If the channel has a `default: true` workspace → use that workspace
-- If the user specifies a workspace name (e.g. "check this into Heimdall") → use that, if the channel is permitted
-- If no match and no explicit target → ask the user which workspace
+Routing is *agent-based* (manifest v2). Determine your agent ID (e.g. `main` for Mimir, `ed` for Ed, `themis` for Themis), then:
+
+1. If the user specifies a workspace name (e.g. "check this into Heimdall") → use that, if your agent ID is in its `agents` list
+2. If no explicit target → use the workspace where your agent ID appears in `defaultFor`
+3. If your agent serves multiple workspaces and none is default → ask the user: "Which workspace? I serve Heimdall and Laurion."
+4. If your agent is not in any workspace's `agents` list → refuse: "I'm not configured for any Foundry workspace."
+
+You can resolve from *any channel* you're present in — routing follows the agent, not the channel.
 
 Record: `workspace_id`, `vault_path`, `board_id`
 
@@ -430,13 +434,20 @@ Look up `notifications.on.{event_type}` in the workspace manifest. Only post if 
 - Delivery is best-effort — a failed notification does not block the action
 - Keep messages concise — one line per event, not walls of text
 
-### Integration with existing procedures
+### Integration with existing procedures (MANDATORY)
 
-- **Check In** (§1 Step 10): after posting the in-thread confirmation, also fire `checkin.complete` delivery
-- **Work** (§4 Step 2): fire `card.claimed` when claiming a card
-- **Work** (§4 Step 5): fire `card.completed` when completing with proof
-- **Work** (§4 Step 6): fire `card.blocked` to both the notification channel AND the originating thread
-- **Card Create** (§5): fire `card.created` if the workspace has it enabled
+Event delivery is *not optional*. Every Foundry action MUST post its notification.
+
+- *Check In* (§1 Step 10): after posting the in-thread confirmation, ALSO post `checkin.complete` to the notification channel
+- *Work* (§4 Step 2): post `card.claimed` when claiming a card
+- *Work* (§4 Step 5): post `card.completed` when completing with proof
+- *Work* (§4 Step 6): post `card.blocked` to BOTH the notification channel AND the originating thread
+- *Card Create* (§5): post `card.created` to the notification channel
+- *Decisions*: post `page.decision_recorded` for each decision recorded during check-in
+
+Use `notify.py` (`tools/foundry/lib/notify.py`) to format messages consistently, or format manually following the templates above. The notification channel comes from the workspace manifest's `notifications.channel` field.
+
+Skip delivery only if `notifications.channel` is null (workspace has no notification target configured).
 
 ---
 

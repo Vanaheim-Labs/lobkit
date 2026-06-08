@@ -4,7 +4,7 @@
 
 Foundry is an execution engine that builds institutional knowledge as a side effect of getting work done.
 
-**Status:** RFC (Rev 7.4 — Dashboard deployed)
+**Status:** RFC (Rev 7.5 — Agent-routed manifest v2)
 **Date:** 2026-06-08
 **Authors:** Andrew, Mimir
 
@@ -144,32 +144,34 @@ Internally, a Workspace maps to:
 
 ```json5
 {
-  "foundry": {
-    "workspaces": {
-      "heimdall": {
-        "name": "Heimdall",
-        "owner": "andrew",
-        "vault": "~/.openclaw/wiki/heimdall",
-        "board": "heimdall",
-        "agents": ["main", "heimdall"],
-        "channels": [
-          {
-            "provider": "slack",
-            "account": "default",
-            "ids": ["C0AGSRGQU6Q", "C0AJMGXC14M"],
-            "default": true
-          }
-        ],
-        "autoCheckin": true,
-        "autoDispatch": false,
-        "approvalRequired": [
-          "more_than_5_cards",
-          "updates_existing_decisions",
-          "low_confidence_decision",
-          "cross_workspace_reference",
-          "sensitive_content"
-        ]
-      }
+  "workspaces": {
+    "heimdall": {
+      "name": "Heimdall",
+      "owner": "andrew",
+      "vault": "~/.openclaw/wiki/heimdall",
+      "board": "heimdall",
+      "agents": ["main", "heimdall"],
+      "defaultFor": ["main"],
+      "notifications": {
+        "channel": "C0AQFJDT2HE",
+        "on": {
+          "checkin.complete": true,
+          "card.claimed": true,
+          "card.completed": true,
+          "card.blocked": true,
+          "card.failed": true,
+          "page.decision_recorded": true
+        }
+      },
+      "autoCheckin": true,
+      "autoDispatch": false,
+      "approvalRequired": [
+        "more_than_5_cards",
+        "updates_existing_decisions",
+        "low_confidence_decision",
+        "cross_workspace_reference",
+        "sensitive_content"
+      ]
     }
   }
 }
@@ -177,15 +179,23 @@ Internally, a Workspace maps to:
 
 `autoDispatch` defaults to `false`. Early Workspaces require human-triggered or agent-claimed execution until the check-in quality is proven. Turn it on per Workspace as a maturity upgrade.
 
-### Channel Routing
+### Agent-Based Routing (Manifest v2)
 
-A channel has *exactly one* default Workspace and *zero or more* permitted Workspaces.
+Workspace resolution is *agent-routed*, not channel-routed. Each Workspace declares:
+- `agents` — which agents may check in, search, and work Cards in this Workspace
+- `defaultFor` — which agents treat this Workspace as their default (no explicit target needed)
 
-- `@Mimir check this in` → routes to the channel's default Workspace.
-- `@Mimir check this into Heimdall` → routes to Heimdall, if permitted for this channel.
-- If no default and no explicit target → ask the user.
+Resolution logic:
 
-A channel cannot accidentally write to a Workspace it isn't permitted for.
+1. Agent receives "check this in" (with or without an explicit workspace name)
+2. If explicit target → use that Workspace, if the agent is in its `agents` list
+3. If no explicit target → use the Workspace where this agent appears in `defaultFor`
+4. If the agent serves multiple Workspaces and none is default → ask: "Which workspace? I serve Heimdall and Laurion."
+5. If the agent is not permitted for the requested Workspace → refuse
+
+This means any agent can check in from *any channel it's present in*. The routing follows the agent, not the channel. No channel IDs need to be maintained for routing purposes — only for notifications (where to post event updates).
+
+An agent cannot accidentally write to a Workspace it isn't permitted for.
 
 ---
 
@@ -756,8 +766,8 @@ Foundry does not duplicate these primitives. It composes them.
 
 The thin layer:
 
-1. **Workspace manifest** — config schema defining workspaces, channel routing, agent permissions, approval policies, dispatch settings
-2. **Channel-to-Workspace resolver** — routes "check this in" to the right Workspace
+1. **Workspace manifest** — config schema defining workspaces, agent bindings, approval policies, dispatch settings, notification preferences
+2. **Agent-to-Workspace resolver** — routes "check this in" to the right Workspace based on which agent is handling the request and its `defaultFor` / `agents` bindings
 3. **Check-in transaction** — idempotent check-in lifecycle with artifact tracking
 4. **Distillation skill** — the LLM-driven process that turns raw Sources into structured Pages and Cards with objectives and definitions of done
 5. **Reverse-path hook** — captures thread replies and routes them to Sources and Cards (including unblocking)

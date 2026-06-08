@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Foundry Workspace Manifest",
+  "description": "Defines Foundry workspaces, channel routing, agent permissions, and policies",
+  "type": "object",
+  "required": ["version", "workspaces"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Manifest schema version"
+    },
+    "description": {
+      "type": "string"
+    },
+    "workspaces": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/workspace"
+      }
+    }
+  },
+  "definitions": {
+    "workspace": {
+      "type": "object",
+      "required": ["name", "owner", "vault", "board"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable workspace name"
+        },
+        "description": {
+          "type": "string",
+          "description": "What this workspace is for"
+        },
+        "owner": {
+          "type": "string",
+          "description": "Primary owner (human)"
+        },
+        "vault": {
+          "type": "string",
+          "description": "Path to the Memory Wiki vault directory"
+        },
+        "board": {
+          "type": "string",
+          "description": "Workboard board ID for this workspace's cards"
+        },
+        "agents": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Agent IDs permitted to operate in this workspace"
+        },
+        "channels": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/channel" },
+          "description": "Channel routing rules"
+        },
+        "autoCheckin": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether check-ins are automatically processed (vs requiring confirmation)"
+        },
+        "autoDispatch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether Ready cards are auto-dispatched to workers. Default off — humans trigger work."
+        },
+        "approvalRequired": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "more_than_5_cards",
+              "updates_existing_decisions",
+              "low_confidence_decision",
+              "cross_workspace_reference",
+              "sensitive_content"
+            ]
+          },
+          "description": "Conditions that require human approval before a check-in is committed"
+        }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "required": ["provider", "ids"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Channel provider (slack, telegram, etc.)"
+        },
+        "account": {
+          "type": "string",
+          "description": "Account identifier within the provider"
+        },
+        "ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Channel IDs that route to this workspace"
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this is the default routing for these channels"
+        }
+      }
+    }
+  }
+}

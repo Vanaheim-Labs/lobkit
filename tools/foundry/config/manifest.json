@@ -1,0 +1,88 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": "1.0.0",
+  "description": "Foundry workspace manifest — defines workspaces, channel routing, and policies",
+
+  "workspaces": {
+    "heimdall": {
+      "name": "Heimdall",
+      "description": "Vanaheim Labs internal knowledge base",
+      "owner": "andrew",
+      "vault": "~/.openclaw/wiki/heimdall",
+      "board": "heimdall",
+      "agents": ["main", "heimdall"],
+      "channels": [
+        {
+          "provider": "slack",
+          "account": "default",
+          "ids": [
+            "C0AGSRGQU6Q",
+            "C0AJMGXC14M",
+            "C0AQFJDT2HE"
+          ],
+          "default": true
+        }
+      ],
+      "autoCheckin": true,
+      "autoDispatch": false,
+      "approvalRequired": [
+        "more_than_5_cards",
+        "updates_existing_decisions",
+        "low_confidence_decision",
+        "cross_workspace_reference",
+        "sensitive_content"
+      ]
+    },
+
+    "slate": {
+      "name": "Slate",
+      "description": "Inkl business knowledge base",
+      "owner": "andrew",
+      "vault": "~/.openclaw/wiki/slate",
+      "board": "slate",
+      "agents": ["main"],
+      "channels": [
+        {
+          "provider": "slack",
+          "account": "default",
+          "ids": [
+            "C0AJZDV0942"
+          ],
+          "default": true
+        }
+      ],
+      "autoCheckin": true,
+      "autoDispatch": false,
+      "approvalRequired": [
+        "more_than_5_cards",
+        "updates_existing_decisions",
+        "cross_workspace_reference"
+      ]
+    },
+
+    "laurion": {
+      "name": "Laurion",
+      "description": "Project Laurion — financial advice platform",
+      "owner": "andrew",
+      "vault": "~/.openclaw/wiki/laurion",
+      "board": "laurion",
+      "agents": ["main", "themis", "barefoot"],
+      "channels": [
+        {
+          "provider": "slack",
+          "account": "default",
+          "ids": [],
+          "default": true
+        }
+      ],
+      "autoCheckin": false,
+      "autoDispatch": false,
+      "approvalRequired": [
+        "more_than_5_cards",
+        "updates_existing_decisions",
+        "cross_workspace_reference",
+        "sensitive_content"
+      ]
+    }
+  }
+}

@@ -191,12 +191,15 @@ For each action item from the distillation, create a workboard card:
 ```bash
 openclaw workboard create "{title}" \
   --board {board_id} \
+  --agent {your_agent_id} \
   --notes "Objective: {objective}\n\nDefinition of Done: {definition_of_done}\n\nSource: {source_id}" \
   --priority {priority} \
   --labels "{labels}" \
   --status todo \
   --json
 ```
+
+**Important:** Always pass `--agent {your_agent_id}` (e.g. `--agent themis`, `--agent main`). Without it, cards appear unassigned and the Workboard UI defaults them to Mimir.
 
 Record the card ID for the confirmation message.
 

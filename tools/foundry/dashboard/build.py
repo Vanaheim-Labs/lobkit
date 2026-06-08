@@ -79,7 +79,8 @@ def load_wiki_pages(vault_path):
             "status": fm.get("status", ""),
             "updatedAt": fm.get("updatedAt", ""),
             "entityType": fm.get("entityType", ""),
-            "body": body[:8000],
+            "body": body[:32000],
+            "bodyTruncated": len(body) > 32000,
         })
     return pages
 
@@ -436,6 +437,10 @@ button { cursor: pointer; font-family: inherit; }
   margin: 0 auto;
   padding: 20px 24px;
 }
+.main-content.kanban-mode {
+  max-width: none;
+  padding: 20px 24px;
+}
 
 /* Stats */
 .stats-grid {
@@ -538,6 +543,7 @@ button { cursor: pointer; font-family: inherit; }
 .sf-btn[data-s="ready"].active { background: rgba(63,185,80,0.1); border-color: var(--green); color: #7ee787; }
 .sf-btn[data-s="review"].active { background: rgba(210,153,34,0.15); border-color: var(--orange); color: var(--orange); }
 .sf-btn[data-s="todo"].active { background: rgba(139,148,158,0.12); border-color: var(--text-muted); color: var(--text-muted); }
+.sf-btn[data-s="scheduled"].active { background: rgba(188,140,255,0.12); border-color: var(--purple); color: var(--purple); }
 
 /* Folder filter pills (knowledge tab) */
 .folder-filters {
@@ -564,7 +570,7 @@ button { cursor: pointer; font-family: inherit; }
   color: var(--accent);
 }
 
-/* Card list */
+/* Card list (legacy) */
 .card-list { display: flex; flex-direction: column; gap: 8px; }
 .card-item {
   background: var(--surface);
@@ -583,6 +589,7 @@ button { cursor: pointer; font-family: inherit; }
 .card-item.s-ready { border-left-color: var(--green); }
 .card-item.s-review { border-left-color: var(--orange); }
 .card-item.s-todo { border-left-color: var(--text-subtle); }
+.card-item.s-scheduled { border-left-color: var(--purple); }
 @keyframes pulseLeft {
   0%, 100% { border-left-color: var(--accent); }
   50% { border-left-color: #79c0ff; }
@@ -593,6 +600,138 @@ button { cursor: pointer; font-family: inherit; }
 .card-row2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .card-id { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11px; color: var(--text-subtle); }
 .card-date { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+
+/* Kanban Board */
+.kanban-board {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  min-height: 400px;
+  align-items: flex-start;
+}
+.kanban-col {
+  flex: 0 0 280px;
+  min-width: 260px;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 260px);
+}
+.kanban-col-header {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--surface2);
+  border-radius: 10px 10px 0 0;
+}
+.kanban-col-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.kanban-col-dot.d-running { background: var(--accent); }
+.kanban-col-dot.d-blocked { background: var(--red); }
+.kanban-col-dot.d-review { background: var(--orange); }
+.kanban-col-dot.d-ready { background: var(--green); }
+.kanban-col-dot.d-todo { background: var(--text-muted); }
+.kanban-col-dot.d-done { background: var(--green); opacity: 0.6; }
+.kanban-col-dot.d-scheduled { background: var(--purple); }
+.kanban-col-name {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.kanban-col-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  background: var(--surface3);
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: auto;
+}
+.kanban-col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kanban-col-body:empty::after {
+  content: 'No cards';
+  display: block;
+  text-align: center;
+  color: var(--text-subtle);
+  font-size: 12px;
+  padding: 24px 8px;
+}
+.kanban-card {
+  background: var(--bg);
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  border-left: 3px solid var(--border);
+}
+.kanban-card:hover {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  transform: translateY(-1px);
+}
+.kanban-card.s-running { border-left-color: var(--accent); animation: pulseLeft 2.2s ease-in-out infinite; }
+.kanban-card.s-blocked { border-left-color: var(--red); }
+.kanban-card.s-done { border-left-color: var(--green); opacity: 0.7; }
+.kanban-card.s-ready { border-left-color: var(--green); }
+.kanban-card.s-review { border-left-color: var(--orange); }
+.kanban-card.s-todo { border-left-color: var(--text-subtle); }
+.kanban-card.s-scheduled { border-left-color: var(--purple); }
+.kanban-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.kanban-card-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+}
+.kanban-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: 4px;
+}
+.kanban-card-id {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+  color: var(--text-subtle);
+}
+.kanban-card-date {
+  font-size: 10px;
+  color: var(--text-subtle);
+}
 
 /* Pills / Badges */
 .pill {
@@ -612,6 +751,7 @@ button { cursor: pointer; font-family: inherit; }
 .ps-ready { background: rgba(63,185,80,0.1); color: #7ee787; border: 1px solid rgba(63,185,80,0.2); }
 .ps-review { background: rgba(210,153,34,0.15); color: var(--orange); border: 1px solid rgba(210,153,34,0.3); }
 .ps-todo { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+.ps-scheduled { background: rgba(188,140,255,0.12); color: var(--purple); border: 1px solid rgba(188,140,255,0.25); }
 .pp-urgent { background: rgba(248,81,73,0.2); color: #ff7b72; border: 1px solid rgba(248,81,73,0.35); }
 .pp-high { background: rgba(210,153,34,0.18); color: var(--orange); border: 1px solid rgba(210,153,34,0.3); }
 .pp-normal { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
@@ -1026,7 +1166,7 @@ button { cursor: pointer; font-family: inherit; }
   line-height: 1.5;
   margin-top: 5px;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1325,7 +1465,7 @@ function agentPill(id) {
 }
 
 function statusPill(s) {
-  const L = {running:'🔨 Running', blocked:'🚫 Blocked', done:'✅ Done', ready:'🟢 Ready', review:'👀 Review', todo:'📋 Todo'};
+  const L = {running:'🔨 Running', blocked:'🚫 Blocked', done:'✅ Done', ready:'🟢 Ready', review:'👀 Review', todo:'📋 Todo', scheduled:'📅 Scheduled'};
   return `<span class="pill ps-${esc(s)}">${L[s] || esc(s)}</span>`;
 }
 function priorityPill(p) {
@@ -1409,16 +1549,28 @@ function renderWorkspace() {
     statsEl.textContent = ` · ${cards.length} cards · ${knowledge.length} pages · ${sources.length} sources`;
   }
 
-  if (CTAB === 'work') renderWork();
-  else if (CTAB === 'knowledge') renderKnowledge();
-  else renderSources();
+  const mc = document.getElementById('main-content');
+  if (CTAB === 'work') { renderWork(); }
+  else { mc.classList.remove('kanban-mode'); if (CTAB === 'knowledge') renderKnowledge(); else renderSources(); }
 }
 
 // ── Work Tab ───────────────────────────────────────────────
 
+const KANBAN_COLUMNS = [
+  { id: 'scheduled', label: 'Scheduled', dot: 'd-scheduled' },
+  { id: 'todo',      label: 'To Do',     dot: 'd-todo' },
+  { id: 'ready',     label: 'Ready',     dot: 'd-ready' },
+  { id: 'running',   label: 'Running',   dot: 'd-running' },
+  { id: 'review',    label: 'Review',    dot: 'd-review' },
+  { id: 'blocked',   label: 'Blocked',   dot: 'd-blocked' },
+  { id: 'done',      label: 'Done',      dot: 'd-done' },
+];
+
 function renderWork() {
   const ws = window.FOUNDRY_DATA.workspaces[CWS];
   const all = ws.cards || [];
+  const mc = document.getElementById('main-content');
+  mc.classList.add('kanban-mode');
 
   const byStatus = s => all.filter(c => c.status === s).length;
   const running = byStatus('running'), blocked = byStatus('blocked'), done = byStatus('done');
@@ -1426,9 +1578,8 @@ function renderWork() {
 
   const agents = [...new Set(all.map(c => c.agent_id).filter(Boolean))].sort();
 
-  // Apply filters
+  // Apply filters (except status — kanban shows all columns)
   let cards = all;
-  if (F_STATUS !== 'all') cards = cards.filter(c => c.status === F_STATUS);
   if (F_PRIO !== 'all') cards = cards.filter(c => c.priority === F_PRIO);
   if (F_AGENT !== 'all') cards = cards.filter(c => c.agent_id === F_AGENT);
   if (F_SEARCH) {
@@ -1439,6 +1590,15 @@ function renderWork() {
       (c.id||'').toLowerCase().includes(q) ||
       (c.labels||[]).some(l => l.toLowerCase().includes(q))
     );
+  }
+
+  // Group by status
+  const grouped = {};
+  for (const col of KANBAN_COLUMNS) grouped[col.id] = [];
+  for (const c of cards) {
+    const s = c.status || 'todo';
+    if (grouped[s]) grouped[s].push(c);
+    else if (grouped['todo']) grouped['todo'].push(c);
   }
 
   const statCard = (val, label, cls='') => {
@@ -1478,35 +1638,45 @@ function renderWork() {
         <option value="all" ${F_AGENT==='all'?'selected':''}>All agents</option>
         ${agentOpts}
       </select>` : ''}
-    </div>
-    <div class="status-filters">
-      ${['all','running','blocked','review','ready','todo','done'].map(s => {
-        const cnt = s === 'all' ? all.length : byStatus(s);
-        return `<button class="sf-btn ${F_STATUS===s?'active':''}" data-s="${s}"
-          onclick="setStatus('${s}')">${s==='all'?'All':s.charAt(0).toUpperCase()+s.slice(1)}
-          ${s!=='all'?`<span style="opacity:.65">(${cnt})</span>`:''}</button>`;
-      }).join('')}
     </div>`;
 
-  let cardsHtml;
-  if (cards.length === 0) {
-    const hasFilters = F_STATUS !== 'all' || F_PRIO !== 'all' || F_AGENT !== 'all' || F_SEARCH;
-    cardsHtml = `<div class="empty-state">
-      <div class="empty-icon">📋</div>
-      <p>${hasFilters ? 'No cards match the current filters.' : 'No cards in this workspace yet.'}</p>
-      ${hasFilters ? `<div class="empty-actions">
-        ${F_STATUS !== 'all' ? `<button class="empty-action-btn" onclick="setStatus('all')">Clear status filter</button>` : ''}
-        ${F_PRIO !== 'all' ? `<button class="empty-action-btn" onclick="setPrio('all');document.querySelector('.filter-select').value='all'">Clear priority</button>` : ''}
-        ${F_AGENT !== 'all' ? `<button class="empty-action-btn" onclick="setAgent('all')">Clear agent</button>` : ''}
-        ${F_SEARCH ? `<button class="empty-action-btn" onclick="F_SEARCH='';renderWork()">Clear search</button>` : ''}
-        <button class="empty-action-btn" onclick="resetWorkFilters()">Clear all filters</button>
-      </div>` : ''}
-    </div>`;
-  } else {
-    cardsHtml = `<div class="card-list">${cards.map(c => cardItemHtml(c)).join('')}</div>`;
-  }
+  // Determine which columns to show (hide empty columns for done if filtered, always show active ones)
+  const visibleCols = F_STATUS !== 'all'
+    ? KANBAN_COLUMNS.filter(col => col.id === F_STATUS)
+    : KANBAN_COLUMNS.filter(col => grouped[col.id].length > 0 || ['ready','running','blocked'].includes(col.id));
 
-  document.getElementById('main-content').innerHTML = statsHtml + controlsHtml + cardsHtml;
+  const statusFilterHtml = `<div class="status-filters">
+    ${['all',...KANBAN_COLUMNS.map(c=>c.id)].map(s => {
+      const cnt = s === 'all' ? all.length : byStatus(s);
+      if (s !== 'all' && cnt === 0 && !['running','blocked','review','ready','todo','done'].includes(s)) return '';
+      return `<button class="sf-btn ${F_STATUS===s?'active':''}" data-s="${s}"
+        onclick="setStatus('${s}')">${s==='all'?'All':s.charAt(0).toUpperCase()+s.slice(1)}
+        ${s!=='all'?`<span style="opacity:.65">(${cnt})</span>`:''}</button>`;
+    }).join('')}
+  </div>`;
+
+  const columnsHtml = visibleCols.map(col => {
+    const colCards = grouped[col.id] || [];
+    return `<div class="kanban-col">
+      <div class="kanban-col-header">
+        <span class="kanban-col-dot ${col.dot}"></span>
+        <span class="kanban-col-name">${col.label}</span>
+        <span class="kanban-col-count">${colCards.length}</span>
+      </div>
+      <div class="kanban-col-body">
+        ${colCards.map(c => kanbanCardHtml(c)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  const boardHtml = cards.length === 0 && !F_SEARCH && F_PRIO === 'all' && F_AGENT === 'all'
+    ? `<div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p>No cards in this workspace yet.</p>
+      </div>`
+    : `<div class="kanban-board">${columnsHtml}</div>`;
+
+  mc.innerHTML = statsHtml + controlsHtml + statusFilterHtml + boardHtml;
 }
 
 function resetWorkFilters() {
@@ -1542,6 +1712,33 @@ function cardItemHtml(c) {
       <span class="card-id">#${short}</span>
       ${failBadge}
       <span class="card-date">${reltime(c.updated_at)}</span>
+    </div>
+  </div>`;
+}
+
+function kanbanCardHtml(c) {
+  const short = (c.id||'').slice(0,8);
+  const labels = (c.labels||[]).slice(0,3).map(l => labelPill(l)).join('');
+  const failBadge = (c.failure_count > 0)
+    ? `<span class="pill" style="background:rgba(248,81,73,.1);color:#ff7b72;border:1px solid rgba(248,81,73,.2);font-size:10px">⚠ ${c.failure_count}</span>`
+    : '';
+  const childCount = (c.children||[]).length;
+  const childBadge = childCount > 0
+    ? `<span style="font-size:10px;color:var(--text-subtle)" title="${childCount} sub-card${childCount!==1?'s':''}">📌${childCount}</span>`
+    : '';
+
+  return `<div class="kanban-card s-${c.status}" onclick="openCard('${esc(c.id)}')">
+    <div class="kanban-card-pills">
+      ${priorityPill(c.priority)}
+      ${agentPill(c.agent_id)}
+      ${labels}
+      ${failBadge}
+    </div>
+    <div class="kanban-card-title">${esc(c.title)}</div>
+    <div class="kanban-card-footer">
+      <span class="kanban-card-id">#${short}</span>
+      ${childBadge}
+      <span class="kanban-card-date">${reltime(c.updated_at)}</span>
     </div>
   </div>`;
 }
@@ -1740,14 +1937,19 @@ function renderSources() {
        </div>`
     : sources.map(s => {
         const pid = encodePageId(s);
-        const excerpt = s.body ? stripMarkdown(s.body).slice(0, 160) : '';
-        const showEllipsis = s.body && stripMarkdown(s.body).length > 160;
+        const excerpt = s.body ? stripMarkdown(s.body).slice(0, 280) : '';
+        const showEllipsis = s.body && stripMarkdown(s.body).length > 280;
         const dateStr = s.updatedAt ? s.updatedAt.slice(0, 10) : '';
+        // Show entityType if present, skip redundant 'source' pageType (already on Sources tab)
+        const metaParts = [];
+        if (s.entityType) metaParts.push(esc(s.entityType));
+        if (s.pageType && s.pageType !== 'unknown' && s.pageType !== 'source') metaParts.push(esc(s.pageType));
+        const metaStr = metaParts.join(' · ');
         return `<div class="source-item" onclick="openPage('${esc(pid)}')">
           ${dateStr ? `<div class="source-date-badge">${esc(dateStr)}</div>` : ''}
           <h3>${esc(s.title)}</h3>
           ${excerpt ? `<div class="source-excerpt">${esc(excerpt)}${showEllipsis ? '…' : ''}</div>` : ''}
-          <div class="source-meta">${s.pageType && s.pageType !== 'unknown' ? esc(s.pageType)+' · ' : ''}${s.entityType ? esc(s.entityType) : ''}</div>
+          ${metaStr ? `<div class="source-meta">${metaStr}</div>` : ''}
         </div>`;
       }).join('');
 
@@ -2024,6 +2226,7 @@ function pagePanelHtml(p) {
       ${displayDate ? `<span style="font-size:11px;color:var(--text-muted);margin-left:auto">${esc(displayDate)}</span>` : ''}
     </div>
     <div class="md-body">${mdToHtml(p.body||'')}</div>
+    ${p.bodyTruncated ? '<div style="margin:12px 0;padding:8px 12px;background:var(--bg-hover);border-radius:6px;font-size:12px;color:var(--text-muted)">Content truncated at 32K chars. Full content in wiki file.</div>' : ''}
     ${linkedHtml}
     <div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--text-subtle);font-family:monospace">${esc(p.path)}</div>
   `;

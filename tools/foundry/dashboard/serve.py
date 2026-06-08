@@ -75,7 +75,7 @@ def load_wiki_pages(vault_path):
             "status": fm.get("status", ""),
             "updatedAt": fm.get("updatedAt", ""),
             "entityType": fm.get("entityType", ""),
-            "body": body[:5000],
+            "body": body,
         })
     return pages
 

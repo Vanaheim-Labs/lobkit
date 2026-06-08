@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
-Foundry Dashboard — Rich Static Site Generator v3
+Foundry Dashboard — Rich Static Site Generator v4
 
 Reads the wiki vault + workboard SQLite and generates a self-contained
 HTML dashboard with a Workboard-quality UI.
 
 Features:
-- Right-side slide-out detail panel (440px)
+- Right-side slide-out detail panel (440px / 520px on wide screens)
 - Full card data: events timeline, execution attempts, worker logs,
   proof, comments, attachments, sub-cards
 - Client-side search and multi-filter (status, priority, agent, text)
 - Pulsing running cards, colored priority/status/agent badges
-- Wiki knowledge slide-out panel with search
+- Wiki knowledge slide-out panel with search, folder filters, decision log
+- Sources tab with search, excerpts, and stats
 - Multi-workspace support via manifest.json
+- Keyboard shortcuts overlay (?), smart timestamps (Today/Yesterday)
 - All data embedded as window.FOUNDRY_DATA JSON
 
 Usage:
@@ -77,7 +79,7 @@ def load_wiki_pages(vault_path):
             "status": fm.get("status", ""),
             "updatedAt": fm.get("updatedAt", ""),
             "entityType": fm.get("entityType", ""),
-            "body": body[:5000],
+            "body": body[:8000],
         })
     return pages
 
@@ -320,6 +322,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   --card-shadow: none;
   --overlay-bg: rgba(0,0,0,0.7);
 }
+@media (min-width: 1400px) {
+  :root { --panel-width: 520px; }
+}
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { font-size: 14px; }
 body {
@@ -534,6 +539,31 @@ button { cursor: pointer; font-family: inherit; }
 .sf-btn[data-s="review"].active { background: rgba(210,153,34,0.15); border-color: var(--orange); color: var(--orange); }
 .sf-btn[data-s="todo"].active { background: rgba(139,148,158,0.12); border-color: var(--text-muted); color: var(--text-muted); }
 
+/* Folder filter pills (knowledge tab) */
+.folder-filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.ff-btn {
+  padding: 3px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.12s;
+}
+.ff-btn:hover { border-color: var(--text-muted); color: var(--text); }
+.ff-btn.active { background: var(--surface2); color: var(--text); border-color: var(--text-muted); }
+.ff-btn.decision-btn.active {
+  background: rgba(88,166,255,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* Card list */
 .card-list { display: flex; flex-direction: column; gap: 8px; }
 .card-item {
@@ -601,6 +631,18 @@ button { cursor: pointer; font-family: inherit; }
 /* Empty state */
 .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
 .empty-icon { font-size: 32px; margin-bottom: 12px; }
+.empty-actions { margin-top: 14px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.empty-action-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.empty-action-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Slide-out panel */
 .panel-backdrop {
@@ -660,6 +702,7 @@ button { cursor: pointer; font-family: inherit; }
   flex: 1;
   overflow-y: auto;
   padding: 18px 20px 32px;
+  scroll-behavior: smooth;
 }
 
 /* Panel content */
@@ -703,6 +746,45 @@ button { cursor: pointer; font-family: inherit; }
   margin-bottom: 10px;
 }
 .panel-labels { display: flex; gap: 5px; flex-wrap: wrap; }
+
+/* Notes: Objective / DoD / Source-ref highlighted sections */
+.notes-objective {
+  background: rgba(63,185,80,0.06);
+  border: 1px solid rgba(63,185,80,0.2);
+  border-left: 3px solid var(--green);
+  border-radius: 6px;
+  padding: 10px 13px;
+  margin-bottom: 10px;
+}
+.notes-dod {
+  background: rgba(88,166,255,0.06);
+  border: 1px solid rgba(88,166,255,0.2);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 13px;
+  margin-bottom: 10px;
+}
+.notes-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.notes-section-body {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.55;
+}
+.notes-source-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
 
 /* Markdown body */
 .md-body { font-size: 13px; line-height: 1.65; color: var(--text); }
@@ -882,21 +964,132 @@ button { cursor: pointer; font-family: inherit; }
 }
 .wiki-card:hover { border-color: var(--accent); }
 .wiki-card-title { font-size: 14px; font-weight: 600; margin: 7px 0 4px; }
-.wiki-card-meta { font-size: 11px; color: var(--text-muted); }
+.wiki-card-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.wiki-excerpt {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Decision blocks */
+.decision-block {
+  background: rgba(88,166,255,0.05);
+  border: 1px solid rgba(88,166,255,0.18);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 11px 14px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+.decision-block:hover { border-color: var(--accent); cursor: pointer; }
+.decision-text {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 5px;
+  line-height: 1.5;
+}
+.decision-source {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.decision-source:hover { color: var(--accent); text-decoration: underline; }
 
 /* Sources */
 .source-item {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 13px 16px;
+  padding: 14px 16px;
   margin-bottom: 8px;
   cursor: pointer;
   transition: border-color 0.15s;
 }
 .source-item:hover { border-color: var(--accent); }
-.source-item h3 { font-size: 14px; margin-bottom: 3px; }
-.source-meta { font-size: 11px; color: var(--text-muted); }
+.source-date-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 5px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+.source-item h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.source-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.source-excerpt {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 5px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Keyboard Shortcuts Overlay */
+.shortcuts-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  z-index: 400;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+}
+.shortcuts-overlay.open { display: flex; }
+.shortcuts-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  min-width: 300px;
+  max-width: 420px;
+  box-shadow: var(--panel-shadow);
+}
+.shortcuts-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 18px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.shortcuts-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 11px;
+  font-size: 13px;
+}
+.shortcut-key {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 9px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+  color: var(--text);
+  min-width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.shortcut-desc { color: var(--text-muted); }
 
 .footer-note { text-align: center; color: var(--text-subtle); font-size: 11px; padding: 28px 0 16px; }
 
@@ -937,7 +1130,23 @@ button { cursor: pointer; font-family: inherit; }
   <div class="panel-body" id="panel-body"></div>
 </aside>
 
-<div class="footer-note" id="footer-note">Generated __BUILD_TS__ · Foundry v3</div>
+<!-- Keyboard Shortcuts Overlay -->
+<div class="shortcuts-overlay" id="shortcuts-overlay" onclick="closeShortcuts()">
+  <div class="shortcuts-box" onclick="event.stopPropagation()">
+    <div class="shortcuts-title">
+      <span>⌨️ Keyboard Shortcuts</span>
+      <button class="shortcuts-close" onclick="closeShortcuts()">✕</button>
+    </div>
+    <div class="shortcut-row"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Close panel or overlay</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">?</span><span class="shortcut-desc">Show this shortcuts overlay</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">/</span><span class="shortcut-desc">Focus search input</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">1</span><span class="shortcut-desc">Switch to Work tab</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">2</span><span class="shortcut-desc">Switch to Knowledge tab</span></div>
+    <div class="shortcut-row"><span class="shortcut-key">3</span><span class="shortcut-desc">Switch to Sources tab</span></div>
+  </div>
+</div>
+
+<div class="footer-note" id="footer-note">Generated __BUILD_TS__ · Foundry v4<span id="footer-stats"></span></div>
 
 <script>
 window.FOUNDRY_DATA = __FOUNDRY_DATA__;
@@ -975,6 +1184,19 @@ function fmtDateTime(ms) {
          d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
 }
 
+function fmtDateSmart(ms) {
+  if (!ms) return '';
+  const d = new Date(ms);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const ystStart = todayStart - 86400000;
+  const dStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const timeStr = d.toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit'});
+  if (dStart === todayStart) return 'Today, ' + timeStr;
+  if (dStart === ystStart) return 'Yesterday, ' + timeStr;
+  return fmtDate(ms);
+}
+
 function fmtDuration(s, e) {
   if (!s || !e) return '';
   const sec = Math.floor((e - s) / 1000);
@@ -988,6 +1210,56 @@ function fmtBytes(b) {
   if (b < 1024) return b + 'B';
   if (b < 1048576) return (b/1024).toFixed(1) + 'KB';
   return (b/1048576).toFixed(1) + 'MB';
+}
+
+// Extract "**Decision:**" or "Decision:" lines from page bodies
+function extractDecisions(pages) {
+  const decisions = [];
+  for (const p of pages) {
+    if (!p.body) continue;
+    const lines = p.body.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/\*\*Decision:\*\*\s*(.+)/) ||
+                lines[i].match(/^Decision:\s*(.+)/i);
+      if (m) {
+        decisions.push({ text: m[1].trim(), page: p });
+      }
+    }
+  }
+  return decisions;
+}
+
+// Parse structured sections from card notes
+function parseNotesSections(notes) {
+  if (!notes) return { objective: null, dod: null, sourceRef: null };
+  // Match "Objective:" possibly with ** markdown around it
+  const objM = notes.match(/(?:^|\n)\*{0,2}Objective:\*{0,2}\s+([^\n]+(?:\n(?![A-Z\*])[^\n]+)*)/i);
+  // Match "Definition of Done:" block
+  const dodM = notes.match(/(?:^|\n)\*{0,2}Definition of Done:\*{0,2}\s+([\s\S]+?)(?=\n\n|\n\*{0,2}[A-Z]|$)/i);
+  // Match "Source: src_xxx"
+  const srcM = notes.match(/\bSource:\s*(src_[a-zA-Z0-9_-]+)/i);
+  return {
+    objective: objM ? objM[1].trim() : null,
+    dod: dodM ? dodM[1].trim() : null,
+    sourceRef: srcM ? srcM[1] : null
+  };
+}
+
+// Strip markdown for plain-text excerpts
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/^---[\s\S]*?---\n?/, '')      // strip frontmatter if any
+    .replace(/```[\s\S]*?```/g, '')          // strip code blocks
+    .replace(/#+\s+[^\n]+/g, '')             // strip headings
+    .replace(/\*\*([^*]+)\*\*/g, '$1')       // bold
+    .replace(/\*([^*]+)\*/g, '$1')           // italic
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
+    .replace(/^\s*[-*]\s+/gm, '')            // list markers
+    .replace(/^\s*\d+\.\s+/gm, '')           // numbered lists
+    .replace(/\n{2,}/g, ' ')                 // collapse newlines
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // Simple markdown → HTML
@@ -1074,13 +1346,17 @@ function attachIcon(mime) {
 
 // ── State ──────────────────────────────────────────────────
 
-let CWS = null;        // current workspace id
-let CTAB = 'work';     // current inner tab
-let F_STATUS = 'all';  // status filter
-let F_PRIO = 'all';    // priority filter
-let F_AGENT = 'all';   // agent filter
-let F_SEARCH = '';     // card search
-let F_WIKI = '';       // wiki search
+let CWS = null;              // current workspace id
+let CTAB = 'work';           // current inner tab
+let F_STATUS = 'all';        // work: status filter
+let F_PRIO = 'all';          // work: priority filter
+let F_AGENT = 'all';         // work: agent filter
+let F_SEARCH = '';           // work: search
+let F_WIKI = '';             // knowledge: search
+let F_FOLDER = 'all';        // knowledge: folder filter
+let F_WIKI_TYPE = 'all';     // knowledge: page type filter
+let F_DECISION = false;      // knowledge: decision view toggle
+let F_SOURCE_SEARCH = '';    // sources: search
 let searchTimer = null;
 
 // ── Workspace / Tab Switching ──────────────────────────────
@@ -1095,6 +1371,7 @@ function initApp() {
 function switchWs(wsId, btn) {
   CWS = wsId; CTAB = 'work';
   F_STATUS = 'all'; F_PRIO = 'all'; F_AGENT = 'all'; F_SEARCH = ''; F_WIKI = '';
+  F_FOLDER = 'all'; F_WIKI_TYPE = 'all'; F_DECISION = false; F_SOURCE_SEARCH = '';
   document.querySelectorAll('.ws-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderWorkspace();
@@ -1125,6 +1402,12 @@ function renderWorkspace() {
         Sources <span class="badge-count">${sources.length}</span>
       </div>
     </nav>`;
+
+  // Update footer stats
+  const statsEl = document.getElementById('footer-stats');
+  if (statsEl) {
+    statsEl.textContent = ` · ${cards.length} cards · ${knowledge.length} pages · ${sources.length} sources`;
+  }
 
   if (CTAB === 'work') renderWork();
   else if (CTAB === 'knowledge') renderKnowledge();
@@ -1181,7 +1464,7 @@ function renderWork() {
     <div class="controls-bar">
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
-        <input class="search-input" type="search" placeholder="Search cards…"
+        <input class="search-input" id="work-search" type="search" placeholder="Search cards…"
           value="${esc(F_SEARCH)}" oninput="debSearch(this.value)">
       </div>
       <select class="filter-select" onchange="setPrio(this.value)">
@@ -1205,11 +1488,30 @@ function renderWork() {
       }).join('')}
     </div>`;
 
-  const cardsHtml = cards.length === 0
-    ? `<div class="empty-state"><div class="empty-icon">📋</div><p>No cards match the current filters.</p></div>`
-    : `<div class="card-list">${cards.map(c => cardItemHtml(c)).join('')}</div>`;
+  let cardsHtml;
+  if (cards.length === 0) {
+    const hasFilters = F_STATUS !== 'all' || F_PRIO !== 'all' || F_AGENT !== 'all' || F_SEARCH;
+    cardsHtml = `<div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>${hasFilters ? 'No cards match the current filters.' : 'No cards in this workspace yet.'}</p>
+      ${hasFilters ? `<div class="empty-actions">
+        ${F_STATUS !== 'all' ? `<button class="empty-action-btn" onclick="setStatus('all')">Clear status filter</button>` : ''}
+        ${F_PRIO !== 'all' ? `<button class="empty-action-btn" onclick="setPrio('all');document.querySelector('.filter-select').value='all'">Clear priority</button>` : ''}
+        ${F_AGENT !== 'all' ? `<button class="empty-action-btn" onclick="setAgent('all')">Clear agent</button>` : ''}
+        ${F_SEARCH ? `<button class="empty-action-btn" onclick="F_SEARCH='';renderWork()">Clear search</button>` : ''}
+        <button class="empty-action-btn" onclick="resetWorkFilters()">Clear all filters</button>
+      </div>` : ''}
+    </div>`;
+  } else {
+    cardsHtml = `<div class="card-list">${cards.map(c => cardItemHtml(c)).join('')}</div>`;
+  }
 
   document.getElementById('main-content').innerHTML = statsHtml + controlsHtml + cardsHtml;
+}
+
+function resetWorkFilters() {
+  F_STATUS = 'all'; F_PRIO = 'all'; F_AGENT = 'all'; F_SEARCH = '';
+  renderWork();
 }
 
 function cardItemHtml(c) {
@@ -1250,18 +1552,22 @@ function renderKnowledge() {
   const ws = window.FOUNDRY_DATA.workspaces[CWS];
   const all = (ws.pages||[]).filter(p => p.folder !== 'sources');
 
-  let pages = all;
-  if (F_WIKI) {
-    const q = F_WIKI.toLowerCase();
-    pages = pages.filter(p =>
-      (p.title||'').toLowerCase().includes(q) ||
-      (p.body||'').toLowerCase().includes(q) ||
-      (p.entityType||'').toLowerCase().includes(q)
-    );
-  }
+  // Count by folder
+  const byFolder = {};
+  for (const p of all) { byFolder[p.folder] = (byFolder[p.folder]||0) + 1; }
 
-  const cnt = f => all.filter(p => p.folder === f).length;
+  // Known main folders + any extras
+  const MAIN_FOLDERS = ['entities','concepts','syntheses','reports'];
+  const allFolderKeys = Object.keys(byFolder).filter(f => f !== 'root').sort();
+  const mainPresent = MAIN_FOLDERS.filter(f => byFolder[f]);
+  const otherFolders = allFolderKeys.filter(f => !MAIN_FOLDERS.includes(f));
+  const displayFolders = [...mainPresent, ...otherFolders];
 
+  // Count by page type
+  const pageTypes = [...new Set(all.map(p => p.pageType).filter(Boolean))].sort();
+
+  // Stats
+  const cnt = f => (byFolder[f]||0);
   const kStat = (val, label, cls='') => {
     const hv = val > 0 ? `has-value ${cls}` : '';
     const vc = val > 0 && cls ? `c-${cls}` : (val > 0 ? 'c-accent' : '');
@@ -1271,26 +1577,98 @@ function renderKnowledge() {
     ${kStat(cnt('entities'), 'Entities')}
     ${kStat(cnt('concepts'), 'Concepts', 'orange')}
     ${kStat(cnt('syntheses'), 'Syntheses', 'green')}
+    ${kStat(cnt('reports'), 'Reports')}
     ${kStat(all.length, 'Total Pages')}
   </div>`;
 
-  const searchHtml = `<div class="controls-bar" style="margin-bottom:16px">
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input class="search-input" type="search" placeholder="Search knowledge…"
-        value="${esc(F_WIKI)}" oninput="debWiki(this.value)">
-    </div>
+  // Decisions for count badge
+  const allDecisions = extractDecisions(all);
+
+  // Folder pills
+  const folderPills = `<div class="folder-filters">
+    <button class="ff-btn ${F_FOLDER==='all'&&!F_DECISION?'active':''}" onclick="setFolder('all')">All (${all.length})</button>
+    ${displayFolders.map(f =>
+      `<button class="ff-btn ${F_FOLDER===f&&!F_DECISION?'active':''}" onclick="setFolder('${esc(f)}')">${f.charAt(0).toUpperCase()+f.slice(1)} (${cnt(f)})</button>`
+    ).join('')}
+    <button class="ff-btn decision-btn ${F_DECISION?'active':''}" onclick="toggleDecision()">📋 Decisions (${allDecisions.length})</button>
   </div>`;
 
+  // Controls: search + optional type filter
+  const typeFilter = pageTypes.length > 2 ? `
+    <select class="filter-select" onchange="setWikiType(this.value)">
+      <option value="all" ${F_WIKI_TYPE==='all'?'selected':''}>All types</option>
+      ${pageTypes.map(t => `<option value="${esc(t)}" ${F_WIKI_TYPE===t?'selected':''}>${esc(t)}</option>`).join('')}
+    </select>` : '';
+
+  const searchHtml = `<div class="controls-bar" style="margin-bottom:8px">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="wiki-search" type="search" placeholder="Search knowledge…"
+        value="${esc(F_WIKI)}" oninput="debWiki(this.value)">
+    </div>
+    ${typeFilter}
+  </div>`;
+
+  // Decision view
+  if (F_DECISION) {
+    let decisions = allDecisions;
+    if (F_WIKI) {
+      const q = F_WIKI.toLowerCase();
+      decisions = decisions.filter(d =>
+        d.text.toLowerCase().includes(q) ||
+        d.page.title.toLowerCase().includes(q)
+      );
+    }
+    const decisionsHtml = decisions.length === 0
+      ? `<div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <p>${F_WIKI ? 'No decisions match your search.' : 'No decision records found. Mark decisions with <code>**Decision:** text</code> in page bodies.'}</p>
+         </div>`
+      : decisions.map(d =>
+          `<div class="decision-block" onclick="openPage('${esc(encodePageId(d.page))}')">
+            <div class="decision-text">${esc(d.text)}</div>
+            <div class="decision-source">
+              📄 ${esc(d.page.title)}${d.page.folder && d.page.folder !== 'root' ? ` <span style="opacity:.7">· ${esc(d.page.folder)}</span>` : ''}
+            </div>
+          </div>`
+        ).join('');
+
+    document.getElementById('main-content').innerHTML = statsHtml + folderPills + searchHtml + decisionsHtml;
+    return;
+  }
+
+  // Normal page grid view — apply filters
+  let pages = all;
+  if (F_FOLDER !== 'all') pages = pages.filter(p => p.folder === F_FOLDER);
+  if (F_WIKI_TYPE !== 'all') pages = pages.filter(p => p.pageType === F_WIKI_TYPE);
+  if (F_WIKI) {
+    const q = F_WIKI.toLowerCase();
+    pages = pages.filter(p =>
+      (p.title||'').toLowerCase().includes(q) ||
+      (p.body||'').toLowerCase().includes(q) ||
+      (p.entityType||'').toLowerCase().includes(q)
+    );
+  }
+
   const gridHtml = pages.length === 0
-    ? `<div class="empty-state"><div class="empty-icon">📚</div><p>No pages match your search.</p></div>`
+    ? `<div class="empty-state">
+        <div class="empty-icon">📚</div>
+        <p>No pages match your search.</p>
+        ${F_WIKI || F_FOLDER !== 'all' || F_WIKI_TYPE !== 'all' ? `<div class="empty-actions">
+          ${F_WIKI ? `<button class="empty-action-btn" onclick="F_WIKI='';renderKnowledge()">Clear search</button>` : ''}
+          ${F_FOLDER !== 'all' ? `<button class="empty-action-btn" onclick="setFolder('all')">Clear folder filter</button>` : ''}
+          ${F_WIKI_TYPE !== 'all' ? `<button class="empty-action-btn" onclick="setWikiType('all')">Clear type filter</button>` : ''}
+        </div>` : ''}
+       </div>`
     : `<div class="knowledge-grid">${pages.map(p => wikiCardHtml(p)).join('')}</div>`;
 
-  document.getElementById('main-content').innerHTML = statsHtml + searchHtml + gridHtml;
+  document.getElementById('main-content').innerHTML = statsHtml + folderPills + searchHtml + gridHtml;
 }
 
 function wikiCardHtml(p) {
   const pid = encodePageId(p);
+  const excerpt = p.body ? stripMarkdown(p.body).slice(0, 120) : '';
+  const showEllipsis = p.body && stripMarkdown(p.body).length > 120;
   return `<div class="wiki-card" onclick="openPage('${esc(pid)}')">
     <div>
       <span class="badge badge-${esc(p.pageType||'unknown')}">${esc(p.pageType||'?')}</span>
@@ -1298,6 +1676,7 @@ function wikiCardHtml(p) {
       ${p.status ? `<span class="badge badge-muted">${esc(p.status)}</span>` : ''}
     </div>
     <div class="wiki-card-title">${esc(p.title)}</div>
+    ${excerpt ? `<div class="wiki-excerpt">${esc(excerpt)}${showEllipsis ? '…' : ''}</div>` : ''}
     <div class="wiki-card-meta">${p.entityType ? esc(p.entityType)+' · ' : ''}${p.updatedAt ? esc(p.updatedAt.slice(0,10)) : ''}</div>
   </div>`;
 }
@@ -1306,23 +1685,73 @@ function wikiCardHtml(p) {
 
 function renderSources() {
   const ws = window.FOUNDRY_DATA.workspaces[CWS];
-  const sources = (ws.pages||[]).filter(p => p.folder === 'sources');
+  const all = (ws.pages||[]).filter(p => p.folder === 'sources');
+
+  // "This month" count
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const thisMonth = all.filter(s => {
+    if (!s.updatedAt) return false;
+    const d = new Date(s.updatedAt);
+    return !isNaN(d.getTime()) && d.getTime() >= monthStart;
+  }).length;
 
   const statsHtml = `<div class="stats-grid">
-    <div class="stat-card"><div class="stat-value">${sources.length}</div><div class="stat-label">Committed Sources</div></div>
+    <div class="stat-card ${all.length>0?'has-value':''}">
+      <div class="stat-value ${all.length>0?'c-accent':''}">${all.length}</div>
+      <div class="stat-label">Total Sources</div>
+    </div>
+    <div class="stat-card ${thisMonth>0?'has-value c-green':''}">
+      <div class="stat-value ${thisMonth>0?'c-green':''}">${thisMonth}</div>
+      <div class="stat-label">This Month</div>
+    </div>
   </div>`;
 
+  const searchHtml = `<div class="controls-bar" style="margin-bottom:14px">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="source-search" type="search" placeholder="Search sources…"
+        value="${esc(F_SOURCE_SEARCH)}" oninput="debSource(this.value)">
+    </div>
+  </div>`;
+
+  // Apply search filter
+  let sources = all;
+  if (F_SOURCE_SEARCH) {
+    const q = F_SOURCE_SEARCH.toLowerCase();
+    sources = sources.filter(s =>
+      (s.title||'').toLowerCase().includes(q) ||
+      (s.body||'').toLowerCase().includes(q)
+    );
+  }
+
+  // Sort by updatedAt descending
+  sources = [...sources].sort((a, b) => {
+    const da = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const db = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return db - da;
+  });
+
   const itemsHtml = sources.length === 0
-    ? `<div class="empty-state"><div class="empty-icon">📰</div><p>No sources committed yet.</p></div>`
+    ? `<div class="empty-state">
+        <div class="empty-icon">📰</div>
+        <p>${F_SOURCE_SEARCH ? 'No sources match your search.' : 'No sources committed yet.'}</p>
+        ${F_SOURCE_SEARCH ? `<div class="empty-actions"><button class="empty-action-btn" onclick="F_SOURCE_SEARCH='';renderSources()">Clear search</button></div>` : ''}
+       </div>`
     : sources.map(s => {
         const pid = encodePageId(s);
+        const excerpt = s.body ? stripMarkdown(s.body).slice(0, 160) : '';
+        const showEllipsis = s.body && stripMarkdown(s.body).length > 160;
+        const dateStr = s.updatedAt ? s.updatedAt.slice(0, 10) : '';
         return `<div class="source-item" onclick="openPage('${esc(pid)}')">
+          ${dateStr ? `<div class="source-date-badge">${esc(dateStr)}</div>` : ''}
           <h3>${esc(s.title)}</h3>
-          <div class="source-meta">${s.updatedAt ? esc(s.updatedAt.slice(0,10)) : ''}</div>
+          ${excerpt ? `<div class="source-excerpt">${esc(excerpt)}${showEllipsis ? '…' : ''}</div>` : ''}
+          <div class="source-meta">${s.pageType && s.pageType !== 'unknown' ? esc(s.pageType)+' · ' : ''}${s.entityType ? esc(s.entityType) : ''}</div>
         </div>`;
       }).join('');
 
-  document.getElementById('main-content').innerHTML = statsHtml + itemsHtml;
+  document.getElementById('main-content').innerHTML = statsHtml + searchHtml + itemsHtml;
 }
 
 // ── Panel: Card Detail ─────────────────────────────────────
@@ -1343,9 +1772,9 @@ function cardPanelHtml(c) {
     <div><div class="pm-label">Status</div><div class="pm-value">${statusPill(c.status)}</div></div>
     <div><div class="pm-label">Priority</div><div class="pm-value">${priorityPill(c.priority)}</div></div>
     <div><div class="pm-label">Agent</div><div class="pm-value">${c.agent_id ? agentPill(c.agent_id) : '<span style="color:var(--text-muted)">—</span>'}</div></div>
-    <div><div class="pm-label">Updated</div><div class="pm-value" style="font-size:11px;color:var(--text-muted)">${fmtDateTime(c.updated_at)}</div></div>
-    ${c.started_at ? `<div><div class="pm-label">Started</div><div class="pm-value" style="font-size:11px;color:var(--text-muted)">${fmtDateTime(c.started_at)}</div></div>` : ''}
-    ${c.completed_at ? `<div><div class="pm-label">Completed</div><div class="pm-value" style="font-size:11px;color:var(--text-muted)">${fmtDateTime(c.completed_at)}</div></div>` : ''}
+    <div><div class="pm-label">Updated</div><div class="pm-value" style="font-size:11px;color:var(--text-muted)">${fmtDateSmart(c.updated_at)}</div></div>
+    ${c.started_at ? `<div><div class="pm-label">Started</div><div class="pm-value" style="font-size:11px;color:var(--text-muted)">${fmtDateSmart(c.started_at)}</div></div>` : ''}
+    ${c.completed_at ? `<div><div class="pm-label">Completed</div><div class="pm-value" style="font-size:11px;color:var(--text-muted)">${fmtDateSmart(c.completed_at)}</div></div>` : ''}
     <div><div class="pm-label">Card ID</div><div class="pm-value" style="font-family:monospace;font-size:11px;color:var(--text-muted)">${esc(short)}</div></div>
     ${c.failure_count > 0 ? `<div><div class="pm-label">Failures</div><div class="pm-value" style="color:var(--red)">${c.failure_count}</div></div>` : ''}
   </div>`;
@@ -1358,12 +1787,40 @@ function cardPanelHtml(c) {
     ? `<div style="margin-bottom:10px"><a href="${esc(c.source_url)}" target="_blank" class="pill pl-source">↗ View source</a></div>`
     : '';
 
-  const notesHtml = c.notes
-    ? `<div class="panel-section" style="border-top:none;padding-top:0;margin-top:0">
-        <div class="panel-sec-title">📝 Notes</div>
-        <div class="md-body">${mdToHtml(c.notes)}</div>
-       </div>`
-    : '';
+  // Parse structured notes sections
+  let notesHtml = '';
+  if (c.notes) {
+    const parsed = parseNotesSections(c.notes);
+
+    const objHtml = parsed.objective
+      ? `<div class="notes-objective">
+          <div class="notes-section-label">🎯 Objective</div>
+          <div class="notes-section-body">${mdToHtml(parsed.objective)}</div>
+        </div>`
+      : '';
+
+    const dodHtml = parsed.dod
+      ? `<div class="notes-dod">
+          <div class="notes-section-label">✅ Definition of Done</div>
+          <div class="notes-section-body">${mdToHtml(parsed.dod)}</div>
+        </div>`
+      : '';
+
+    const srcRefHtml = parsed.sourceRef
+      ? `<div class="notes-source-ref">
+          <span style="color:var(--text-subtle)">Source ref:</span>
+          <span class="pill pl-source" title="${esc(parsed.sourceRef)}">${esc(parsed.sourceRef)}</span>
+        </div>`
+      : '';
+
+    notesHtml = `<div class="panel-section" style="border-top:none;padding-top:0;margin-top:0">
+      <div class="panel-sec-title">📝 Notes</div>
+      ${objHtml}
+      ${dodHtml}
+      ${srcRefHtml}
+      <div class="md-body">${mdToHtml(c.notes)}</div>
+    </div>`;
+  }
 
   const childrenHtml = (c.children||[]).length > 0
     ? `<div class="panel-section">
@@ -1420,7 +1877,7 @@ function cardPanelHtml(c) {
             <div class="attempt-detail">
               ${a.engine ? `Engine: ${esc(a.engine)}` : ''}
               ${a.mode ? ` · Mode: ${esc(a.mode)}` : ''}
-              ${a.started_at ? ` · ${fmtDateTime(a.started_at)}` : ''}
+              ${a.started_at ? ` · ${fmtDateSmart(a.started_at)}` : ''}
             </div>
             ${a.error ? `<div class="attempt-error">${esc((a.error||'').slice(0,500))}</div>` : ''}
           </div>`
@@ -1434,7 +1891,7 @@ function cardPanelHtml(c) {
         <div class="log-list">
           ${(c.logs||[]).map(l =>
             `<div class="log-item">
-              <span class="log-time">${fmtDateTime(l.created_at)}</span>
+              <span class="log-time">${fmtDateSmart(l.created_at)}</span>
               <span class="ll-${l.level||'info'}">${esc(l.message)}</span>
             </div>`
           ).join('')}
@@ -1465,7 +1922,7 @@ function cardPanelHtml(c) {
         ${(c.comments||[]).map(cm =>
           `<div class="comment-item">
             <div>${esc(cm.body)}</div>
-            <div class="comment-time">${fmtDateTime(cm.created_at)}</div>
+            <div class="comment-time">${fmtDateSmart(cm.created_at)}</div>
           </div>`
         ).join('')}
        </div>`
@@ -1519,16 +1976,55 @@ function openPage(pageId) {
 }
 
 function pagePanelHtml(p) {
+  const ws = window.FOUNDRY_DATA.workspaces[CWS];
+  const isSource = p.folder === 'sources';
+
+  // Find wikilinks in body and try to resolve them
+  const linkedPages = [];
+  if (p.body) {
+    const wlMatches = [...(p.body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g))];
+    const wlNames = wlMatches.map(m => m[1].trim().toLowerCase());
+    if (wlNames.length > 0) {
+      for (const pg of (ws.pages||[])) {
+        const pgTitle = (pg.title||'').toLowerCase();
+        const pgStem = (pg.path||'').split('/').pop().replace(/\.md$/,'').replace(/-/g,' ').toLowerCase();
+        if (wlNames.some(wl => wl === pgTitle || wl === pgStem) && pg.path !== p.path) {
+          linkedPages.push(pg);
+        }
+      }
+    }
+  }
+
+  const linkedHtml = linkedPages.length > 0
+    ? `<div class="panel-section">
+        <div class="panel-sec-title">🔗 Linked Pages (${linkedPages.length})</div>
+        ${linkedPages.map(lp =>
+          `<div class="subcard-item" onclick="openPage('${esc(encodePageId(lp))}')">
+            <span class="badge badge-${esc(lp.pageType||'unknown')}" style="font-size:10px">${esc(lp.pageType||'?')}</span>
+            <span style="font-size:12px">${esc(lp.title)}</span>
+          </div>`
+        ).join('')}
+       </div>`
+    : '';
+
+  // Format date smartly if it's a timestamp, else show as-is
+  let displayDate = '';
+  if (p.updatedAt) {
+    const d = new Date(p.updatedAt);
+    displayDate = isNaN(d.getTime()) ? p.updatedAt.slice(0,10) : fmtDateSmart(d.getTime());
+  }
+
   return `
     <div class="panel-title">${esc(p.title)}</div>
-    <div style="margin-bottom:12px">
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <span class="badge badge-${esc(p.pageType||'unknown')}">${esc(p.pageType||'?')}</span>
       ${p.folder && p.folder !== 'root' ? `<span class="badge badge-muted">${esc(p.folder)}</span>` : ''}
       ${p.status ? `<span class="badge badge-muted">${esc(p.status)}</span>` : ''}
       ${p.entityType ? `<span class="badge badge-muted">${esc(p.entityType)}</span>` : ''}
+      ${displayDate ? `<span style="font-size:11px;color:var(--text-muted);margin-left:auto">${esc(displayDate)}</span>` : ''}
     </div>
-    ${p.updatedAt ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Updated: ${esc(p.updatedAt.slice(0,10))}</div>` : ''}
     <div class="md-body">${mdToHtml(p.body||'')}</div>
+    ${linkedHtml}
     <div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--text-subtle);font-family:monospace">${esc(p.path)}</div>
   `;
 }
@@ -1538,12 +2034,59 @@ function pagePanelHtml(p) {
 function openPanel() {
   document.getElementById('panel-backdrop').classList.add('open');
   document.getElementById('detail-panel').classList.add('open');
+  // Scroll panel body to top
+  requestAnimationFrame(() => {
+    const pb = document.getElementById('panel-body');
+    if (pb) pb.scrollTop = 0;
+  });
 }
 function closePanel() {
   document.getElementById('panel-backdrop').classList.remove('open');
   document.getElementById('detail-panel').classList.remove('open');
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+// ── Shortcuts overlay ──────────────────────────────────────
+
+function openShortcuts() {
+  document.getElementById('shortcuts-overlay').classList.add('open');
+}
+function closeShortcuts() {
+  document.getElementById('shortcuts-overlay').classList.remove('open');
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────
+
+document.addEventListener('keydown', e => {
+  // Ignore when typing in inputs
+  const tag = (e.target.tagName||'').toLowerCase();
+  const inInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+  if (e.key === 'Escape') {
+    if (document.getElementById('shortcuts-overlay').classList.contains('open')) {
+      closeShortcuts(); return;
+    }
+    closePanel();
+    return;
+  }
+
+  if (inInput) return;
+
+  if (e.key === '?') {
+    e.preventDefault();
+    openShortcuts();
+    return;
+  }
+  if (e.key === '/') {
+    e.preventDefault();
+    // Focus the visible search input
+    const search = document.querySelector('.search-input');
+    if (search) search.focus();
+    return;
+  }
+  if (e.key === '1') { switchTab('work'); return; }
+  if (e.key === '2') { switchTab('knowledge'); return; }
+  if (e.key === '3') { switchTab('sources'); return; }
+});
 
 // ── Filter handlers ────────────────────────────────────────
 
@@ -1558,6 +2101,13 @@ function debWiki(v) {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => { F_WIKI = v; renderKnowledge(); }, 180);
 }
+function debSource(v) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { F_SOURCE_SEARCH = v; renderSources(); }, 180);
+}
+function setFolder(f) { F_FOLDER = f; F_DECISION = false; renderKnowledge(); }
+function setWikiType(t) { F_WIKI_TYPE = t; renderKnowledge(); }
+function toggleDecision() { F_DECISION = !F_DECISION; F_FOLDER = 'all'; renderKnowledge(); }
 
 // ── Theme ──────────────────────────────────────────────────
 function applyTheme(theme) {
@@ -1617,7 +2167,7 @@ def generate_html(data):
 # ─────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Foundry Dashboard Generator v3")
+    parser = argparse.ArgumentParser(description="Foundry Dashboard Generator v4")
     parser.add_argument(
         "--manifest",
         default=os.path.expanduser(

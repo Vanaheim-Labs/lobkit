@@ -103,6 +103,24 @@ def board_id(workspace_config):
     return workspace_config["board"]
 
 
+def notification_config(workspace_config):
+    """Get the notification config for a workspace."""
+    return workspace_config.get("notifications", {})
+
+
+def should_notify(workspace_config, event_type):
+    """Check if a workspace should deliver a notification for an event type."""
+    notif = notification_config(workspace_config)
+    if not notif.get("channel"):
+        return False
+    return notif.get("on", {}).get(event_type, False)
+
+
+def notification_channel(workspace_config):
+    """Get the notification channel for a workspace. Returns None if not set."""
+    return notification_config(workspace_config).get("channel")
+
+
 def list_workspaces(manifest=None):
     """List all workspaces with their details."""
     if manifest is None:

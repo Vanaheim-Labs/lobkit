@@ -401,6 +401,82 @@ For state changes outside of the Work flow:
 
 ---
 
+## 7. Event Delivery Procedure
+
+After every Foundry action that produces an event, check the workspace's `notifications` config and post formatted messages to the configured channel.
+
+### When to deliver
+
+Look up `notifications.on.{event_type}` in the workspace manifest. Only post if the event type is `true`.
+
+### Message formats
+
+| Event | Format |
+|---|---|
+| `checkin.complete` | 📥 *Checked in:* {title} — {N} pages updated, {M} cards created |
+| `card.created` | 📌 *New card:* {title} ({priority}) |
+| `card.claimed` | 🔨 *{agent}* picked up: *{title}* |
+| `card.completed` | ✅ *Done:* {title} — {proof summary} |
+| `card.blocked` | 🚫 *Blocked:* {title} — {question} |
+| `card.failed` | ❌ *Failed:* {title} — {reason} |
+| `card.unblocked` | 🔓 *Unblocked:* {title} — re-queued |
+| `page.decision_recorded` | 📋 *Decision:* {text} — on {page} |
+
+### Delivery rules
+
+- Post to `notifications.channel` (from the workspace manifest)
+- If `notifications.channel` is null → skip delivery (workspace has no notification channel)
+- `card.blocked` questions are ALSO posted to the *originating thread* (reverse-path) — not just the notification channel
+- Delivery is best-effort — a failed notification does not block the action
+- Keep messages concise — one line per event, not walls of text
+
+### Integration with existing procedures
+
+- **Check In** (§1 Step 10): after posting the in-thread confirmation, also fire `checkin.complete` delivery
+- **Work** (§4 Step 2): fire `card.claimed` when claiming a card
+- **Work** (§4 Step 5): fire `card.completed` when completing with proof
+- **Work** (§4 Step 6): fire `card.blocked` to both the notification channel AND the originating thread
+- **Card Create** (§5): fire `card.created` if the workspace has it enabled
+
+---
+
+## 8. Blocked Loop Procedure
+
+The blocked loop is the conversational work cycle: agent works → hits a wall → asks a question → human answers → agent resumes.
+
+### Blocking a Card
+
+1. During Work (§4 Step 6), when the agent cannot proceed:
+2. Update the card to `blocked` status with the reason
+3. Post the question to:
+   - The *originating Slack thread* (where the source was checked in) — this is the reverse-path
+   - The workspace notification channel (if `card.blocked` is enabled)
+4. Record the blocked state:
+   - `blocked_reason`: the question
+   - `blocked_thread`: `slack://{channel}/{thread_ts}` where the question was posted
+   - `blocked_at`: timestamp
+
+### Unblocking a Card
+
+When a human replies to the blocked question:
+
+1. Read the reply content
+2. Append the reply to the Source (if one exists for this thread)
+3. Update the card:
+   - Move from `blocked` → `todo` (re-queued for work)
+   - Add the human's answer to the card notes as context
+4. Fire `card.unblocked` delivery (if enabled)
+5. If `autoDispatch` is on, the card will be picked up automatically
+6. If manual, the agent or human can trigger `work on {card}` to resume
+
+### How unblocking works (Phase 3 implementation)
+
+In Phase 3, unblocking is *agent-mediated* — when I see a reply in a thread where I posted a blocked question, I recognise it as an unblock signal and process it. The agent is already a participant in the thread.
+
+A fully automated reverse-path hook (OpenClaw plugin that watches all messages and auto-routes to blocked cards) is a Phase 4+ enhancement. The Phase 3 implementation proves the loop works; automation makes it hands-free.
+
+---
+
 ## Source ID Convention
 
 `src_slack_{channel_id}_{thread_ts_integer}`

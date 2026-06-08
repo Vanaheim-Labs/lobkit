@@ -4,7 +4,7 @@
 
 Foundry is an execution engine that builds institutional knowledge as a side effect of getting work done.
 
-**Status:** RFC (Rev 7 — baseline)
+**Status:** RFC (Rev 7.1 — Event Delivery added)
 **Date:** 2026-06-08
 **Authors:** Andrew, Mimir
 
@@ -495,6 +495,79 @@ payload:
 
 Execution events on a Card (`card.claimed`, `card.executing`, `card.blocked`, `card.completed`, `card.failed`) are the equivalent of v1's "runs" — but they're just events, not a separate concept.
 
+### Event Delivery
+
+Events are internal by default. Event delivery makes them visible — publishing updates to Slack (or any channel) when things happen in a Workspace.
+
+Delivery is not a new noun or verb. It is a configurable behaviour on events: when an event fires, optionally format and send a message to a channel.
+
+#### Workspace notification config
+
+Notification preferences live in the Workspace manifest alongside channel routing:
+
+```json5
+{
+  "notifications": {
+    "channel": "C0AQFJDT2HE",      // default delivery channel
+    "thread": false,                 // true = thread per card/source
+    "on": {
+      "checkin.complete": true,       // 📥 Checked in: {title} — N pages, M cards
+      "card.created": false,         // usually noisy; off by default
+      "card.claimed": true,          // 🔨 {agent} picked up: {title}
+      "card.completed": true,        // ✅ Done: {title} — {proof summary}
+      "card.blocked": true,          // 🚫 Blocked: {title} — {question}
+      "card.failed": true,           // ❌ Failed: {title} — {reason}
+      "card.unblocked": false,       // usually implied by next claim
+      "page.decision_recorded": true, // 📋 Decision: {text} on {page}
+      "page.updated": false,         // too frequent; off by default
+      "source.committed": false      // covered by checkin.complete
+    },
+    "digest": {
+      "enabled": false,
+      "schedule": "daily",           // daily | weekly
+      "channel": null                // defaults to notifications.channel
+    }
+  }
+}
+```
+
+Delivery follows the same principle as everything else in Foundry: start quiet, turn up the volume per Workspace as trust grows. All event types default to `false` except the high-signal ones shown above.
+
+#### What gets published
+
+| Event | Default | Message format |
+|---|---|---|
+| `checkin.complete` | ✅ on | 📥 *Checked in:* {title} — {N} pages updated, {M} cards created |
+| `card.created` | off | 📌 *New card:* {title} ({priority}) |
+| `card.claimed` | ✅ on | 🔨 *{agent}* picked up: {title} |
+| `card.completed` | ✅ on | ✅ *Done:* {title} — {proof summary} |
+| `card.blocked` | ✅ on | 🚫 *Blocked:* {title} — {question} |
+| `card.failed` | ✅ on | ❌ *Failed:* {title} — {reason} |
+| `card.unblocked` | off | 🔓 *Unblocked:* {title} — re-queued |
+| `page.decision_recorded` | ✅ on | 📋 *Decision:* {text} — on {page} |
+| `page.updated` | off | 📝 *Page updated:* {page} — {change summary} |
+| `source.committed` | off | 📄 *Source captured:* {title} |
+| `digest` | off | 📊 *{Workspace} today:* {N} check-ins, {M} cards worked, {B} blocked |
+
+#### Delivery mechanics
+
+Event delivery uses the same channel infrastructure as the rest of Foundry:
+- The agent posts to the Workspace's notification channel via normal messaging
+- Blocked card questions are posted to the *originating thread* (reverse-path), not the notification channel
+- Digest summaries can go to a different channel if configured
+- Delivery is best-effort and non-blocking — a failed notification does not block the event
+
+The reverse-path hook (Phase 3) is a specific case of event delivery: `card.blocked` → post question to originating thread. General event delivery extends this pattern to all event types.
+
+#### What event delivery is NOT
+
+- Not a new noun (no "Notification" entity)
+- Not a new verb (no "Notify" action)
+- Not a webhook system — it uses Foundry's existing channel routing
+- Not a replacement for the dashboard — it supplements passive browsing with active push
+
+Event delivery is: events + channel routing + message formatting. Three things that already exist, composed.
+
 ---
 
 ## 6. The Three Verbs
@@ -670,6 +743,7 @@ The thin layer:
 5. **Reverse-path hook** — captures thread replies and routes them to Sources and Cards (including unblocking)
 6. **Worker context injection** — when dispatch spawns a worker for a Card, Foundry loads the linked Pages and Sources into the worker's prompt context
 7. **Write-back rules** — controlled append-first write-back with approval gates for decisions and cross-workspace writes
+8. **Event delivery** — configurable per-Workspace notification publishing to channels when events fire (check-ins, card lifecycle, decisions)
 
 Everything else is native:
 - Knowledge = Memory Wiki
@@ -809,15 +883,19 @@ Build:
 
 **Gate:** An agent can pick up a Ready Card, load relevant Pages/Sources as context, execute the work, and complete it with proof. Write-back rules are enforced.
 
-### Phase 3: Blocked Loop — Human in the Loop
+### Phase 3: Blocked Loop + Event Delivery
 
 Build:
 - Reverse-path hook (`message:received` → card unblock + source append)
-- Blocked Card → question posted to thread
+- Blocked Card → question posted to originating thread
 - Human reply → Card unblocked → re-queued with new context
 - Comment capture on Cards
+- Event delivery layer: configurable per-Workspace notification publishing to Slack
+- Workspace manifest `notifications` config section
+- Delivery formatting for all core event types (checkin, card lifecycle, decisions)
+- Optional digest summaries (daily/weekly rollups)
 
-**Gate:** An agent blocks a Card with a question. The question appears in Slack. A human replies. The Card unblocks, the agent resumes with the answer, and completes the work. The full exchange is captured as events.
+**Gate:** An agent blocks a Card with a question. The question appears in Slack. A human replies. The Card unblocks, the agent resumes with the answer, and completes the work. The full exchange is captured as events. Additionally, card lifecycle events (claimed, completed, blocked, failed) and check-in completions are published to the Workspace's notification channel.
 
 ### Phase 4: Auto-Dispatch — Autonomous Execution
 

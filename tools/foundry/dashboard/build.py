@@ -275,7 +275,31 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Foundry Dashboard</title>
 <style>
+/* Light theme (default) */
 :root {
+  --bg: #ffffff;
+  --surface: #f6f8fa;
+  --surface2: #eaeef2;
+  --surface3: #d0d7de;
+  --border: #d0d7de;
+  --border-muted: #e1e4e8;
+  --text: #1f2328;
+  --text-muted: #656d76;
+  --text-subtle: #8b949e;
+  --accent: #0969da;
+  --green: #1a7f37;
+  --red: #cf222e;
+  --orange: #9a6700;
+  --purple: #8250df;
+  --panel-width: 440px;
+  --pill-on-accent: #fff;
+  --panel-bg: #ffffff;
+  --panel-shadow: 0 0 0 1px rgba(31,35,40,0.04), 0 8px 24px rgba(31,35,40,0.12);
+  --card-shadow: 0 1px 3px rgba(31,35,40,0.04);
+  --overlay-bg: rgba(0,0,0,0.3);
+}
+/* Dark theme */
+[data-theme="dark"] {
   --bg: #0d1117;
   --surface: #161b22;
   --surface2: #21262d;
@@ -290,7 +314,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   --red: #f85149;
   --orange: #d29922;
   --purple: #bc8cff;
-  --panel-width: 440px;
+  --pill-on-accent: #000;
+  --panel-bg: #161b22;
+  --panel-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 8px 24px rgba(0,0,0,0.4);
+  --card-shadow: none;
+  --overlay-bg: rgba(0,0,0,0.7);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { font-size: 14px; }
@@ -330,6 +358,18 @@ button { cursor: pointer; font-family: inherit; }
   font-size: 12px;
   flex: 1;
 }
+.theme-toggle {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text);
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { background: var(--surface3); border-color: var(--text-muted); }
 
 /* Workspace Switcher */
 .ws-switcher {
@@ -352,7 +392,7 @@ button { cursor: pointer; font-family: inherit; }
   white-space: nowrap;
 }
 .ws-btn:hover { color: var(--text); border-color: var(--text-muted); }
-.ws-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+.ws-btn.active { background: var(--accent); color: var(--pill-on-accent); border-color: var(--accent); font-weight: 600; }
 
 /* Inner Tabs */
 .inner-tabs {
@@ -505,7 +545,8 @@ button { cursor: pointer; font-family: inherit; }
   transition: border-color 0.15s, box-shadow 0.15s;
   border-left: 3px solid var(--border);
 }
-.card-item:hover { border-color: var(--accent); border-left-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.card-item { box-shadow: var(--card-shadow); }
+.card-item:hover { border-color: var(--accent); border-left-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 .card-item.s-running { border-left-color: var(--accent); animation: pulseLeft 2.2s ease-in-out infinite; }
 .card-item.s-blocked { border-left-color: var(--red); }
 .card-item.s-done { border-left-color: var(--green); opacity: 0.72; }
@@ -566,7 +607,7 @@ button { cursor: pointer; font-family: inherit; }
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: var(--overlay-bg);
   z-index: 200;
   backdrop-filter: blur(2px);
 }
@@ -877,6 +918,7 @@ button { cursor: pointer; font-family: inherit; }
     <span>Foundry</span>
   </div>
   <span class="header-tagline">Check in a conversation. Foundry remembers what matters and tracks what needs doing.</span>
+  <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme"><span id="theme-icon">🌙</span></button>
 </header>
 
 <nav class="ws-switcher" id="ws-switcher">
@@ -1516,6 +1558,25 @@ function debWiki(v) {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => { F_WIKI = v; renderKnowledge(); }, 180);
 }
+
+// ── Theme ──────────────────────────────────────────────────
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('theme-icon').textContent = '☀️';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    document.getElementById('theme-icon').textContent = '🌙';
+  }
+}
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  localStorage.setItem('foundry-theme', next);
+  applyTheme(next);
+}
+// Apply saved theme (default: light)
+applyTheme(localStorage.getItem('foundry-theme') || 'light');
 
 // ── Boot ───────────────────────────────────────────────────
 initApp();

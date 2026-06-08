@@ -6,7 +6,7 @@ Foundry is an execution engine that builds institutional knowledge as a side eff
 
 ## Status
 
-**Phase 0** — Foundation scaffolded. Plugins enabled, wiki vaults initialised, workspace manifest defined.
+**Phase 2** — Work Loop complete. Check In produces Sources + Pages + Cards. Work Loop picks up Cards, loads wiki context, executes, completes with proof and write-back.
 
 ## How it works
 
@@ -40,9 +40,9 @@ tools/foundry/
 ├── config/
 │   └── manifest.json      ← workspace definitions
 ├── skills/
-│   └── (distillation, worker prompts — Phase 1)
+│   └── SKILL.md           ← Check In, Search, Get, Work, Card Create/Update procedures
 └── lib/
-    └── (resolver, idempotency, write-back rules — Phase 1)
+    └── resolver.py        ← channel→workspace routing, vault/board path expansion
 ```
 
 ## Workspace manifest
@@ -61,8 +61,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full Rev 7 design.
 | Phase | Name | Gate |
 |-------|------|------|
 | **0** | Foundation & Cleanup | ✅ Plugins enabled, vaults init'd, v1 archived |
-| **1** | Kernel — Check In | Thread checked in → Source + Pages + Cards |
-| **2** | Work Loop — Execution | Agent picks up Card, executes with wiki context, completes with proof |
+| **1** | Kernel — Check In | ✅ Thread checked in → Source + Pages + Cards |
+| **2** | Work Loop — Execution | ✅ Agent picks up Card, executes with wiki context, completes with proof |
 | **3** | Blocked Loop | Agent blocks → human replies → agent resumes |
 | **4** | Auto-Dispatch | Cards auto-execute on opt-in workspaces |
 | **5** | Decomposition | Parent/child card lifecycle |

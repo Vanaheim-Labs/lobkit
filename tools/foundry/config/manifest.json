@@ -1,8 +1,7 @@
 {
   "$schema": "./manifest.schema.json",
   "version": "1.1.0",
-  "description": "Foundry workspace manifest — defines workspaces, channel routing, notifications, and policies",
-
+  "description": "Foundry workspace manifest \u2014 defines workspaces, channel routing, notifications, and policies",
   "workspaces": {
     "heimdall": {
       "name": "Heimdall",
@@ -10,7 +9,10 @@
       "owner": "andrew",
       "vault": "~/.openclaw/wiki/heimdall",
       "board": "heimdall",
-      "agents": ["main", "heimdall"],
+      "agents": [
+        "main",
+        "heimdall"
+      ],
       "channels": [
         {
           "provider": "slack",
@@ -52,16 +54,22 @@
         "low_confidence_decision",
         "cross_workspace_reference",
         "sensitive_content"
-      ]
+      ],
+      "dispatch": {
+        "maxConcurrent": 3,
+        "failurePolicy": "block-after-2",
+        "workerModel": null
+      }
     },
-
     "slate": {
       "name": "Slate",
       "description": "Inkl business knowledge base",
       "owner": "andrew",
       "vault": "~/.openclaw/wiki/slate",
       "board": "slate",
-      "agents": ["main"],
+      "agents": [
+        "main"
+      ],
       "channels": [
         {
           "provider": "slack",
@@ -101,14 +109,17 @@
         "cross_workspace_reference"
       ]
     },
-
     "laurion": {
       "name": "Laurion",
-      "description": "Project Laurion — financial advice platform",
+      "description": "Project Laurion \u2014 financial advice platform",
       "owner": "andrew",
       "vault": "~/.openclaw/wiki/laurion",
       "board": "laurion",
-      "agents": ["main", "themis", "barefoot"],
+      "agents": [
+        "main",
+        "themis",
+        "barefoot"
+      ],
       "channels": [
         {
           "provider": "slack",

@@ -4,7 +4,7 @@
 
 Foundry is an execution engine that builds institutional knowledge as a side effect of getting work done.
 
-**Status:** RFC (Rev 7.1 — Event Delivery added)
+**Status:** RFC (Rev 7.2 — Auto-Dispatch wired)
 **Date:** 2026-06-08
 **Authors:** Andrew, Mimir
 
@@ -901,11 +901,13 @@ Build:
 
 Build:
 - Auto-dispatch configuration (Workspace-level toggle, default off)
-- Workboard dispatch integration
-- Concurrency controls
-- Failure intelligence (learnings capture)
+- Workspace manifest `dispatch` config: `maxConcurrent`, `failurePolicy`, `workerModel`
+- Workboard dispatch integration (native `openclaw workboard dispatch`)
+- Periodic dispatch cron for auto-dispatch workspaces
+- Concurrency controls (max simultaneous workers per workspace)
+- Failure intelligence (block-after-N policy, learnings written to wiki)
 
-**Gate:** A Workspace with `autoDispatch: true` sees Cards created by check-in start executing without human intervention. Cards created by check-in on a default Workspace require human triggering.
+**Gate:** A Workspace with `autoDispatch: true` sees Cards created by check-in start executing without human intervention. Cards created by check-in on a default Workspace require human triggering. Tested: `openclaw workboard dispatch` successfully claims Ready cards and starts worker sub-agent sessions that load wiki context, execute the objective, and complete with proof.
 
 ### Phase 5: Decomposition — Complex Work
 

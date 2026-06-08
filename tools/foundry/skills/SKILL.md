@@ -477,6 +477,70 @@ A fully automated reverse-path hook (OpenClaw plugin that watches all messages a
 
 ---
 
+## 9. Auto-Dispatch Procedure
+
+Auto-dispatch enables Workspaces to execute Ready cards without human triggering.
+
+### Configuration
+
+In the workspace manifest, set `autoDispatch: true` on a workspace. Also configure dispatch limits:
+
+```json
+"dispatch": {
+  "maxConcurrent": 3,
+  "failurePolicy": "block-after-2",
+  "workerModel": null
+}
+```
+
+### How it works
+
+1. A periodic dispatch cycle runs (via cron or manual `openclaw workboard dispatch`)
+2. Workboard's native dispatch engine:
+   - Promotes dependency-ready cards
+   - Cleans stale claims and timed-out runs
+   - Selects up to 3 Ready cards (by priority, then oldest)
+   - Starts a worker sub-agent session for each
+3. Each worker receives:
+   - The card's title, notes (objective + definition of done), and claim token
+   - Access to wiki tools (`wiki_search`, `wiki_get`) for context loading
+   - The Workboard worker protocol (`workboard_heartbeat`, `workboard_complete`, `workboard_block`)
+4. The worker executes autonomously:
+   - Reads wiki context (linked Pages/Sources from card notes)
+   - Does the work
+   - Calls `workboard_complete` with summary + proof, or `workboard_block` if stuck
+
+### Triggering dispatch
+
+*Manual:* `openclaw workboard dispatch` (CLI) or `/workboard dispatch` (Slack)
+*Periodic:* Cron job running dispatch every N minutes for auto-dispatch workspaces
+*On check-in:* When `autoDispatch` is true, dispatch runs after a check-in creates Ready cards
+
+### Failure intelligence
+
+When a worker fails or a card is blocked repeatedly:
+
+1. The failure reason is recorded on the card (via workboard events)
+2. If `failurePolicy: "block-after-2"` → card moves to `blocked` after 2 failed attempts
+3. Findings from the failure (what went wrong, what was tried) should be written back to the relevant wiki Page as a finding
+4. This is the "failed work produces useful learning" principle from the quality bar
+
+### Concurrency controls
+
+- `maxConcurrent`: maximum simultaneous workers per workspace (default: 3)
+- Workboard dispatch natively avoids duplicate claims and limits starts per pass
+- One card per owner/agent per dispatch pass
+- Cards with active claims are skipped
+
+### Enabling auto-dispatch for a workspace
+
+This is a maturity upgrade. Only enable when:
+- Check-in quality is proven (cards have good objectives and DoD)
+- The wiki has enough context for workers to execute independently
+- Human review of completed work is in place
+
+---
+
 ## Source ID Convention
 
 `src_slack_{channel_id}_{thread_ts_integer}`

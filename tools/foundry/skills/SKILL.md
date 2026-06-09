@@ -48,58 +48,28 @@ Look for an existing source file in `{vault_path}/sources/` whose frontmatter co
 
 ### Step 3: Fetch Thread Content
 
-Read the full Slack thread. Capture:
-- All messages (with author, timestamp, text)
-- File attachments (names, descriptions)
-- Reactions (notable ones)
-- Thread participants
+**Do not rely on session context alone.** Your session context may only contain the most recent ~20 thread messages. For any thread longer than a few exchanges, explicitly fetch the full history using the Slack tool:
 
-### Step 4: Distil
-
-This is the core LLM step. Process the raw thread content and produce structured output:
-
-```yaml
-title: "Concise thread title (3-8 words)"
-summary: "2-4 sentence summary of what was discussed and decided"
-findings:
-  - text: "A factual finding or observation worth recording"
-    confidence: 0.9
-    entity: "optional-entity-slug"
-  - text: "Another finding"
-    confidence: 0.8
-decisions:
-  - text: "The decision that was made"
-    why: "Rationale for the decision"
-    status: current
-    entity: "entity-slug-this-belongs-on"
-  - text: "Another decision"
-    why: "..."
-    status: current
-action_items:
-  - title: "Card title — imperative, specific"
-    objective: "What needs to be done, in enough detail to start"
-    definition_of_done: "How to know this is finished"
-    priority: "high|normal|low"
-    labels: ["label1", "label2"]
-  - title: "Another card"
-    objective: "..."
-    definition_of_done: "..."
-entities:
-  - slug: "entity-slug"
-    name: "Human Name"
-    type: "knowledge|playbook"
-    folder: "entities|concepts"
+```json
+{ "action": "readMessages", "channelId": "{channel_id}", "limit": 200 }
 ```
 
-**Distillation rules:**
-- A finding is factual — something observed, learned, or established
-- A decision is a choice that was made — it has a "why" and can be superseded later
-- An action item becomes a Card ONLY if it has: (1) a clear objective, (2) a definition of done, (3) enough context to start, (4) a genuine expectation of execution
-- Vague intentions ("we should look into X") are findings, NOT cards
-- Not every check-in produces cards — that's fine
-- Prefer fewer, higher-quality cards over many vague ones
+If the thread is very long, paginate using `before` with the oldest message timestamp from the previous batch until you have everything.
 
-### Step 5: Write Source
+Verify completeness: does the conversation start naturally (with a question, request, or topic introduction)? If it begins mid-thought or references earlier discussion you can't see, you're missing messages — fetch more.
+
+Capture for each message:
+- Author (display name, not raw user ID)
+- Timestamp
+- **Full message text — every word, uncompressed**
+- File attachments (names, types)
+- Notable reactions (especially 👍 ✅ ❌ — these often signal decisions)
+
+**Critical rule: verbatim capture.** Your own previous responses in the thread must be captured *in full*. Do not summarise, compress, or paraphrase any message — yours or anyone else's. If you wrote a 500-word analysis in the thread, all 500 words go into the Source file. "Delivered a comprehensive report covering: [bullets]" is NOT acceptable — the actual report text must be included.
+
+### Step 4: Write Source (Verbatim Transcript)
+
+**Write the Source file FIRST, before any distillation.** This ensures the raw conversation is permanently preserved regardless of extraction quality. The Source is the canonical record — someone reading it six months from now should understand the full conversation without access to Slack.
 
 Create `{vault_path}/sources/{source_id}.md`:
 
@@ -120,20 +90,107 @@ status: committed
 # {title}
 
 ## Summary
-{summary}
+{Leave blank initially — fill in after distillation in Step 5}
 
 ## Thread Content
 
-{Full thread messages, formatted as:}
-
 **{Author}** ({timestamp}):
-{message text}
+{FULL verbatim message text — do not summarise}
 
 ---
 
 **{Author}** ({timestamp}):
-{message text}
+{FULL verbatim message text — do not summarise}
 ```
+
+**Verbatim means verbatim.** Every message, every word, every code block, every bullet point, every link. The Source file should be a complete transcript. If the original message was 50 lines long, the Source entry is 50 lines long.
+
+### Step 5: Distil
+
+Now re-read the Source you just wrote. This is a focused analytical pass — separate from the mechanical capture work. You're looking for what matters.
+
+Produce structured output:
+
+```yaml
+title: "Concise thread title (3-8 words)"
+summary: "Narrative summary — see 5a below"
+findings:
+  - text: "A factual finding or observation worth recording"
+    confidence: 0.9
+    entity: "optional-entity-slug"
+decisions:
+  - text: "The decision — stated clearly enough to act on"
+    why: "Rationale, context, or constraint that drove it"
+    quotation: "The actual words from the conversation"
+    status: current
+    entity: "entity-slug-if-applicable"
+action_items:
+  - title: "Card title — imperative, specific"
+    objective: "What needs to be done"
+    definition_of_done: "How to know this is finished (or 'TBD — needs refinement')"
+    priority: "high|normal|low"
+    labels: ["label1", "label2"]
+entities:
+  - slug: "entity-slug"
+    name: "Human Name"
+    type: "knowledge|playbook"
+    folder: "entities|concepts"
+```
+
+#### 5a: Summary (Narrative Arc)
+
+Write 6–12 sentences that capture:
+- **What prompted the conversation** — what question, problem, or goal started it
+- **The key turns** — where did the discussion pivot, what options were weighed and rejected
+- **What was resolved** — the actual outcomes and decisions, not just topics discussed
+- **What's still open** — unresolved questions, deferred items, known gaps
+- **The tone and context** — was this urgent? exploratory? contentious? routine?
+
+Write like a project journal entry, not an abstract. Someone skimming the wiki should understand not just *what* happened but *why* and *how it got there*. A good summary tells a story.
+
+After completing distillation, go back and fill in the Source file's `## Summary` section with this narrative.
+
+#### 5b: Decisions
+
+Decisions in conversation are often implicit. Actively look for these signals:
+- **Explicit approval:** "yes", "approved", "let's do that", "go ahead", 👍 reaction
+- **Direction-setting:** "I want X", "we should go with Y", "the approach is Z"
+- **Rejection of alternatives:** "not X", "let's not do that", "I tried X and it doesn't work"
+- **Prioritisation:** "do X first", "X before Y", "this is more important"
+- **Commitment/assignment:** "I'll do X", "you handle Y", "can you take care of Z"
+- **Constraints:** "we must/can't/won't X", "the rule is Y", "the budget is Z"
+- **Approval-by-emoji:** a 👍 or ✅ on a proposal IS a decision to approve that proposal
+
+Each decision includes a `quotation` field — the actual words (or emoji context) from the conversation. This anchors the decision to what was said and prevents drift during extraction.
+
+**Don't be conservative.** "Yes, proceed with Phase 1 👍" is a decision. "Use library X instead of Y" is a decision. Choosing to defer something is a decision. Capture the small decisions alongside the big ones — they're often the ones people forget and later dispute.
+
+#### 5c: Findings
+
+Factual observations, learnings, technical discoveries, or established information:
+- Something investigated and found to be true (or false)
+- A limitation or capability discovered
+- A pattern, insight, or surprise that emerged
+- Context that would be useful for future reference
+
+#### 5d: Action Items → Cards
+
+**If someone expresses intent to act, create a card.** The threshold:
+- Someone said "we need to X", "next step is Y", "I'll do X", "let's X", "can you X"
+- A task was assigned or volunteered for
+- A follow-up was promised ("I'll check on that", "let me look into it")
+- There is clearly work to be done, even if the scope isn't perfectly defined yet
+
+**Don't wait for a perfect definition of done.** A card with `Definition of Done: TBD — needs refinement before execution` is far better than a lost action item. Mark uncertain cards with a `needs-refinement` label and `priority: low` so they're visible on the board but won't auto-execute.
+
+**When NOT to create a card:**
+- Pure speculation with no intent ("it would be cool if someday...")
+- Rejected ideas that explicitly won't be pursued
+- Things that were already completed during the conversation
+
+#### 5e: Entities
+
+Identify people, systems, tools, projects, or concepts that this conversation contributes meaningful knowledge about. Not every noun is an entity — only create/update pages when the conversation adds substantive, reusable information.
 
 ### Step 6: Write/Update Pages
 
@@ -158,7 +215,9 @@ claims: []
 
 ## Summary
 <!-- openclaw:wiki:summary:start -->
-{Summary of what we know about this entity, drawn from the check-in}
+{Rich summary of what we know about this entity. Write 3-6 sentences covering:
+what it is, why it matters, current status, key context. Draw from all
+check-ins that reference this entity, not just the latest one.}
 <!-- openclaw:wiki:summary:end -->
 
 ## Findings
@@ -171,6 +230,7 @@ claims: []
 {Each decision as a structured block:}
 - **Decision:** {text}
   **Why:** {rationale}
+  **Quotation:** "{actual words from conversation}"
   **Source:** {source_id}
   **Status:** current
   **Date:** {date}
@@ -200,6 +260,8 @@ openclaw workboard create "{title}" \
 ```
 
 **Important:** Always pass `--agent {your_agent_id}` (e.g. `--agent themis`, `--agent main`). Without it, cards appear unassigned and the Workboard UI defaults them to Mimir.
+
+**Cards with vague scope:** If the action item has `Definition of Done: TBD — needs refinement`, include `needs-refinement` in the labels and set priority to `low`. These cards are captured and visible on the board but won't be picked up by auto-dispatch until someone refines them.
 
 Record the card ID for the confirmation message.
 

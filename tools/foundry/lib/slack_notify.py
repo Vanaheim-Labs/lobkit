@@ -115,7 +115,14 @@ def get_new_events(db, board_id, since_ts):
     cursor = db.execute("""
         SELECT e.id, e.card_id, e.kind, e.at, e.from_status, e.to_status,
                c.title, c.status as current_status, c.priority, c.agent_id,
-               c.failure_count
+               c.failure_count,
+               (
+                 SELECT body FROM workboard_comments wc
+                 WHERE wc.card_id = e.card_id
+                   AND lower(wc.body) LIKE 'completed:%'
+                 ORDER BY wc.created_at DESC
+                 LIMIT 1
+               ) as completion_summary
         FROM workboard_card_events e
         JOIN workboard_cards c ON e.card_id = c.id
         WHERE c.board_id = ?
@@ -128,12 +135,19 @@ def get_new_events(db, board_id, since_ts):
 def get_board_summary(db, board_id):
     """Get current board state for backfill."""
     cursor = db.execute("""
-        SELECT id, title, status, priority, agent_id, failure_count,
-               created_at, updated_at, started_at, completed_at
-        FROM workboard_cards
-        WHERE board_id = ?
+        SELECT c.id, c.title, c.status, c.priority, c.agent_id, c.failure_count,
+               c.created_at, c.updated_at, c.started_at, c.completed_at,
+               (
+                 SELECT body FROM workboard_comments wc
+                 WHERE wc.card_id = c.id
+                   AND lower(wc.body) LIKE 'completed:%'
+                 ORDER BY wc.created_at DESC
+                 LIMIT 1
+               ) as completion_summary
+        FROM workboard_cards c
+        WHERE c.board_id = ?
         ORDER BY
-            CASE status
+            CASE c.status
                 WHEN 'running' THEN 0
                 WHEN 'blocked' THEN 1
                 WHEN 'review' THEN 2
@@ -142,7 +156,7 @@ def get_board_summary(db, board_id):
                 WHEN 'done' THEN 5
                 WHEN 'failed' THEN 6
             END,
-            position ASC
+            c.position ASC
     """, (board_id,))
     return [dict(row) for row in cursor.fetchall()]
 
@@ -183,6 +197,13 @@ def format_event(event, workspace_name):
         emoji = STATUS_EMOJI.get(to_status, "❓")
 
         if to_status == "done":
+            summary = event.get("completion_summary")
+            if summary:
+                # Truncate to 300 chars
+                summary_text = summary.strip()
+                if len(summary_text) > 300:
+                    summary_text = summary_text[:297] + "…"
+                return f"{emoji} *Done:* {title}\n> {summary_text}"
             return f"{emoji} *Done:* {title}"
         elif to_status == "blocked":
             return f"{emoji} *Blocked:* {title}"
@@ -245,6 +266,12 @@ def format_backfill(cards, workspace_name):
                 title = title[:77] + "…"
             agent_tag = f" — {card['agent_id']}" if card.get("agent_id") else ""
             lines.append(f"• {title}{agent_tag}")
+            # Show completion summary for done cards if available
+            if status == "done" and card.get("completion_summary"):
+                summary = card["completion_summary"].strip()
+                if len(summary) > 200:
+                    summary = summary[:197] + "…"
+                lines.append(f"  > {summary}")
         lines.append("")
 
     total = len(cards)

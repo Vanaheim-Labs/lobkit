@@ -734,6 +734,81 @@ button { cursor: pointer; font-family: inherit; }
   color: var(--text-subtle);
 }
 
+/* Cost badge on kanban cards */
+.kanban-card-cost {
+  font-size: 10px;
+  color: var(--green);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.kanban-card-cost .cost-tokens {
+  color: var(--text-subtle);
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+/* Cost breakdown in card detail panel */
+.cost-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.cost-stat {
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.cost-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.cost-stat-value.cost-primary {
+  color: var(--green);
+}
+.cost-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cost-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface2);
+  margin-top: 10px;
+}
+.cost-bar-seg {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.cost-bar-seg.cb-input { background: var(--accent); }
+.cost-bar-seg.cb-output { background: var(--green); }
+.cost-bar-seg.cb-cache-read { background: var(--orange); opacity: 0.6; }
+.cost-bar-seg.cb-cache-write { background: var(--purple); opacity: 0.6; }
+.cost-bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.cost-bar-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+
 /* Drag & Drop */
 .kanban-card[draggable="true"] { cursor: grab; }
 .kanban-card[draggable="true"]:active { cursor: grabbing; }
@@ -1050,6 +1125,14 @@ button { cursor: pointer; font-family: inherit; }
   background: rgba(88,166,255,0.06);
   border: 1px solid rgba(88,166,255,0.2);
   border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 13px;
+  margin-bottom: 10px;
+}
+.completion-summary {
+  background: rgba(63,185,80,0.06);
+  border: 1px solid rgba(63,185,80,0.2);
+  border-left: 3px solid var(--green);
   border-radius: 6px;
   padding: 10px 13px;
   margin-bottom: 10px;
@@ -1595,6 +1678,89 @@ function fmtBytes(b) {
   return (b/1048576).toFixed(1) + 'MB';
 }
 
+// ── Cost formatting ────────────────────────────────────────
+
+function fmtCost(v) {
+  if (v == null) return '';
+  if (v < 0.01) return '<$0.01';
+  if (v < 1) return '$' + v.toFixed(2);
+  return '$' + v.toFixed(2);
+}
+
+function fmtTokensShort(n) {
+  if (!n) return '0';
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'K';
+  return (n/1_000_000).toFixed(1).replace(/\.0$/,'') + 'M';
+}
+
+function fmtTokensLong(n) {
+  if (!n) return '0';
+  return n.toLocaleString();
+}
+
+function costBadgeHtml(c) {
+  if (!c || !c.cost) return '';
+  const cost = c.cost;
+  return `<span class="kanban-card-cost" title="${fmtTokensLong(cost.input_tokens)} in · ${fmtTokensLong(cost.output_tokens)} out · ${cost.turns} turns">`
+    + `${fmtCost(cost.cost)}`
+    + `<span class="cost-tokens">${fmtTokensShort(cost.input_tokens + cost.output_tokens)} tok</span>`
+    + `</span>`;
+}
+
+function costBreakdownHtml(c) {
+  if (!c || !c.cost) return '';
+  const cost = c.cost;
+  const total = cost.total_tokens || 1;
+  const inPct = Math.round((cost.input_tokens / total) * 100);
+  const outPct = Math.round((cost.output_tokens / total) * 100);
+  const crPct = Math.round((cost.cache_read / total) * 100);
+  const cwPct = Math.max(0, 100 - inPct - outPct - crPct);
+
+  return `<div class="panel-section">
+    <div class="panel-sec-title">💰 Cost & Token Usage</div>
+    <div class="cost-breakdown">
+      <div class="cost-stat">
+        <div class="cost-stat-value cost-primary">${fmtCost(cost.cost)}</div>
+        <div class="cost-stat-label">List Price</div>
+      </div>
+      <div class="cost-stat">
+        <div class="cost-stat-value">${fmtTokensShort(cost.input_tokens)}</div>
+        <div class="cost-stat-label">Input Tokens</div>
+      </div>
+      <div class="cost-stat">
+        <div class="cost-stat-value">${fmtTokensShort(cost.output_tokens)}</div>
+        <div class="cost-stat-label">Output Tokens</div>
+      </div>
+      <div class="cost-stat">
+        <div class="cost-stat-value">${fmtTokensShort(cost.cache_read)}</div>
+        <div class="cost-stat-label">Cache Read</div>
+      </div>
+      <div class="cost-stat">
+        <div class="cost-stat-value">${cost.turns}</div>
+        <div class="cost-stat-label">Turns</div>
+      </div>
+      <div class="cost-stat">
+        <div class="cost-stat-value">${esc(cost.model || '—')}</div>
+        <div class="cost-stat-label">Model</div>
+      </div>
+    </div>
+    <div class="cost-bar">
+      <div class="cost-bar-seg cb-input" style="width:${inPct}%" title="Input: ${fmtTokensLong(cost.input_tokens)}"></div>
+      <div class="cost-bar-seg cb-output" style="width:${outPct}%" title="Output: ${fmtTokensLong(cost.output_tokens)}"></div>
+      <div class="cost-bar-seg cb-cache-read" style="width:${crPct}%" title="Cache read: ${fmtTokensLong(cost.cache_read)}"></div>
+      <div class="cost-bar-seg cb-cache-write" style="width:${cwPct}%" title="Cache write: ${fmtTokensLong(cost.cache_write)}"></div>
+    </div>
+    <div class="cost-bar-legend">
+      <span><span class="cost-bar-legend-dot" style="background:var(--accent)"></span>Input (${fmtTokensShort(cost.input_tokens)})</span>
+      <span><span class="cost-bar-legend-dot" style="background:var(--green)"></span>Output (${fmtTokensShort(cost.output_tokens)})</span>
+      <span><span class="cost-bar-legend-dot" style="background:var(--orange);opacity:0.6"></span>Cache Read (${fmtTokensShort(cost.cache_read)})</span>
+      <span><span class="cost-bar-legend-dot" style="background:var(--purple);opacity:0.6"></span>Cache Write (${fmtTokensShort(cost.cache_write)})</span>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:var(--text-subtle)">List-price equivalent (Max subscription actual cost: $0)</div>
+  </div>`;
+}
+
 // Extract "**Decision:**" or "Decision:" lines from page bodies
 function extractDecisions(pages) {
   const decisions = [];
@@ -2045,6 +2211,7 @@ function kanbanCardHtml(c) {
     <div class="kanban-card-footer">
       <span class="kanban-card-id">#${short}</span>
       ${childBadge}
+      ${costBadgeHtml(c)}
       <span class="kanban-card-date">${reltime(c.updated_at)}</span>
     </div>
   </div>`;
@@ -2331,6 +2498,27 @@ function cardPanelHtml(c) {
     </div>`;
   }
 
+  // Completion Summary — shown for done/review cards
+  let completionHtml = '';
+  if (c.status === 'done' || c.status === 'review') {
+    const completedComment = (c.comments||[]).find(cm => (cm.body||'').trim().toLowerCase().startsWith('completed:'));
+    if (completedComment) {
+      completionHtml = `<div class="panel-section" style="border-top:none;padding-top:0;margin-top:0">
+        <div class="panel-sec-title">🏁 Completion Summary</div>
+        <div class="completion-summary">
+          <div class="notes-section-body">${mdToHtml(completedComment.body)}</div>
+        </div>
+      </div>`;
+    } else if ((c.proof||[]).length > 0) {
+      completionHtml = `<div class="panel-section" style="border-top:none;padding-top:0;margin-top:0">
+        <div class="panel-sec-title">🏁 Completion Summary</div>
+        <div class="completion-summary">
+          <div class="notes-section-body" style="color:var(--text-muted);font-style:italic">Proof submitted but no summary recorded.</div>
+        </div>
+      </div>`;
+    }
+  }
+
   const childrenHtml = (c.children||[]).length > 0
     ? `<div class="panel-section">
         <div class="panel-sec-title">📌 Sub-cards (${c.children.length})</div>
@@ -2465,9 +2653,11 @@ function cardPanelHtml(c) {
   return `
     <div class="panel-title">${esc(c.title)}</div>
     ${metaGrid}
+    ${costBreakdownHtml(c)}
     ${labelsHtml}
     ${srcHtml}
     ${notesHtml}
+    ${completionHtml}
     ${childrenHtml}
     ${eventsHtml}
     ${attemptsHtml}

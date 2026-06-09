@@ -15,6 +15,7 @@ Endpoints:
 """
 
 import argparse
+import glob
 import json
 import os
 import sqlite3
@@ -24,6 +25,116 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from threading import Lock
 from urllib.parse import urlparse
+
+# ─────────────────────────────────────────────
+#  Per-card cost computation from session JSONL
+# ─────────────────────────────────────────────
+
+AGENTS_DIR = os.path.expanduser("~/.openclaw/agents")
+
+# Anthropic list-price $/MTok (used as normalised unit even for Max sub sessions)
+MODEL_PRICES = {
+    "claude-opus-4-7":   {"input": 15.0,  "output": 75.0,  "cache_read": 1.5,  "cache_write": 3.75},
+    "claude-opus-4-6":   {"input": 15.0,  "output": 75.0,  "cache_read": 1.5,  "cache_write": 3.75},
+    "claude-sonnet-4-6": {"input": 3.0,   "output": 15.0,  "cache_read": 0.3,  "cache_write": 0.375},
+    "claude-haiku-4-5":  {"input": 0.8,   "output": 4.0,   "cache_read": 0.08, "cache_write": 0.1},
+    "gpt-4o-mini":       {"input": 0.15,  "output": 0.60,  "cache_read": 0.075, "cache_write": 0.15},
+}
+
+
+def _build_session_index():
+    """Build a flat index: session_key → session_file from all agents' sessions.json."""
+    idx = {}
+    if not os.path.isdir(AGENTS_DIR):
+        return idx
+    for agent_dir in os.listdir(AGENTS_DIR):
+        sj_path = os.path.join(AGENTS_DIR, agent_dir, "sessions", "sessions.json")
+        if not os.path.exists(sj_path):
+            continue
+        try:
+            with open(sj_path) as f:
+                sj = json.load(f)
+            for key, entry in sj.items():
+                sf = entry.get("sessionFile", "")
+                if sf:
+                    idx[key] = sf
+        except Exception:
+            pass
+    return idx
+
+
+def _find_session_file(card_id, session_index):
+    """Find the session JSONL file for a card by matching its UUID in session keys."""
+    for key, sf in session_index.items():
+        if card_id in key and os.path.exists(sf):
+            return sf
+    return None
+
+
+def _compute_session_cost(session_file):
+    """Extract token usage and calculate list-price cost from a session JSONL."""
+    totals = {
+        "input": 0, "output": 0, "cache_read": 0, "cache_write": 0,
+        "turns": 0, "models": set()
+    }
+    try:
+        with open(session_file) as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                    u = obj.get("message", {}).get("usage", {})
+                    if u.get("totalTokens", 0) > 0:
+                        totals["turns"] += 1
+                        totals["input"] += u.get("input", 0)
+                        totals["output"] += u.get("output", 0)
+                        totals["cache_read"] += u.get("cacheRead", 0)
+                        totals["cache_write"] += u.get("cacheWrite", 0)
+                        m = obj.get("message", {}).get("model", "")
+                        if m:
+                            totals["models"].add(
+                                m.split("/")[-1] if "/" in m else m
+                            )
+                except Exception:
+                    pass
+    except Exception:
+        return None
+
+    if totals["turns"] == 0:
+        return None
+
+    model = list(totals["models"])[0] if totals["models"] else "claude-sonnet-4-6"
+    prices = MODEL_PRICES.get(model, MODEL_PRICES["claude-sonnet-4-6"])
+    cost = (
+        totals["input"]       * prices["input"]       / 1_000_000 +
+        totals["output"]      * prices["output"]      / 1_000_000 +
+        totals["cache_read"]  * prices["cache_read"]  / 1_000_000 +
+        totals["cache_write"] * prices["cache_write"] / 1_000_000
+    )
+
+    return {
+        "input_tokens":  totals["input"],
+        "output_tokens": totals["output"],
+        "cache_read":    totals["cache_read"],
+        "cache_write":   totals["cache_write"],
+        "total_tokens":  totals["input"] + totals["output"] + totals["cache_read"] + totals["cache_write"],
+        "turns":         totals["turns"],
+        "model":         model,
+        "cost":          round(cost, 4),
+    }
+
+
+def enrich_cards_with_cost(cards):
+    """Add a 'cost' object to each card that has a recoverable session file."""
+    if not cards:
+        return
+    session_index = _build_session_index()
+    for card in cards:
+        sf = _find_session_file(card["id"], session_index)
+        if sf:
+            cost_data = _compute_session_cost(sf)
+            if cost_data:
+                card["cost"] = cost_data
+
 
 # ─────────────────────────────────────────────
 #  Data loading (same logic as build.py)
@@ -91,7 +202,7 @@ def load_workboard_full(db_path, board_id):
         """SELECT id, title, notes, status, priority, agent_id,
                   board_id, created_at, updated_at, started_at, completed_at,
                   source_url, execution_model, execution_status, execution_engine,
-                  execution_mode, failure_count, session_key
+                  execution_mode, failure_count, session_key, execution_session_key
            FROM workboard_cards
            WHERE board_id = ? AND archived_at IS NULL
            ORDER BY
@@ -241,6 +352,7 @@ def build_foundry_data(manifest, db_path):
 
         pages = load_wiki_pages(vault) if os.path.exists(vault) else []
         cards = load_workboard_full(db_path, board)
+        enrich_cards_with_cost(cards)
 
         data["workspaces"][ws_id] = {
             "id": ws_id,
